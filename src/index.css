@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-charcoal: #1d1a17;
+  --color-charcoal-light: #2a2521;
+  --color-cream: #fff8f0;
+  --color-chili: #e4572e;
+  --color-chili-dark: #c6441e;
+  --color-turmeric: #f2a93b;
+  --color-basil: #4c9a63;
+  --color-ink: #2b2320;
+  --font-display: "Bricolage Grotesque", sans-serif;
+  --font-body: "Inter", sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+}
+
+/* thin, warm scrollbar for the filter rail / cart drawer */
+.scroll-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(228, 87, 46, 0.35);
+  border-radius: 999px;
+}
+
+/* the stamp badge signature element */
+.stamp {
+  border: 2px dashed var(--color-charcoal);
+  transform: rotate(-8deg);
+}
+
+@keyframes pop-in {
+  0% { transform: scale(0.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-pop-in {
+  animation: pop-in 0.25s ease-out;
+}
+
+@keyframes slide-in {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(0); }
+}
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop-in, .animate-slide-in {
+    animation: none;
+  }
+}
