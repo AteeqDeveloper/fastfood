@@ -9,9 +9,10 @@ import CartDrawer from "./components/CartDrawer";
 function App() {
   const [category, setCategory] = useState("All");
   const [rating, setRating] = useState(0);
+  const [priceRange, setPriceRange] = useState(1500); // <-- New State (Max price initially 1500)
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("default");
-  const [cart, setCart] = useState({}); // { [productId]: qty }
+  const [cart, setCart] = useState({});
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
@@ -27,11 +28,14 @@ function App() {
         ratingMatch = product.rating >= rating && product.rating < rating + 1;
       }
 
+      // Price Match Filter logic (NEW)
+      const priceMatch = product.price <= priceRange;
+
       const searchMatch =
         search.trim() === "" ||
         product.title.toLowerCase().includes(search.trim().toLowerCase());
 
-      return categoryMatch && ratingMatch && searchMatch;
+      return categoryMatch && ratingMatch && priceMatch && searchMatch; // <-- Included priceMatch
     });
 
     if (sortBy === "price-asc") list = [...list].sort((a, b) => a.price - b.price);
@@ -39,7 +43,7 @@ function App() {
     if (sortBy === "rating-desc") list = [...list].sort((a, b) => b.rating - a.rating);
 
     return list;
-  }, [category, rating, search, sortBy]);
+  }, [category, rating, priceRange, search, sortBy]); // <-- Added priceRange to dependencies
 
   const cartCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
 
@@ -66,6 +70,7 @@ function App() {
   const resetFilters = () => {
     setCategory("All");
     setRating(0);
+    setPriceRange(1500); // <-- Reset price filter
     setSearch("");
   };
 
@@ -95,6 +100,8 @@ function App() {
           setCategory={setCategory}
           rating={rating}
           setRating={setRating}
+          priceRange={priceRange}       // <-- Passed prop
+          setPriceRange={setPriceRange} // <-- Passed prop
           isOpen={mobileFiltersOpen}
           onClose={() => setMobileFiltersOpen(false)}
         />

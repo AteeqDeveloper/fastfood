@@ -14,7 +14,7 @@ function Header({ search, setSearch, cartCount, onCartClick, onFiltersClick }) {
         {/* Brand */}
         <div className="shrink-0 flex items-baseline gap-1 mr-2">
           <span className="font-display font-extrabold text-xl sm:text-2xl tracking-tight">
-            Karachi<span className="text-chili">Bites</span>
+            Spicy<span className="text-chili">Bites</span>
           </span>
         </div>
 
