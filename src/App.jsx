@@ -1,10 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { products } from "./data/products";
 import ProductCard from "./components/ProductsCard";
 import Header from "./components/Header";
 import Sidebar from "./components/Sidebar";
 import EmptyState from "./components/EmptyState";
 import CartDrawer from "./components/CartDrawer";
+import ProductDetailModal from "./components/ProductDetailModal";
 
 function App() {
   const [category, setCategory] = useState("All");
@@ -17,6 +18,10 @@ function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
 
+  // Product detail modal state
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+
   const categories = ["All", ...new Set(products.map((p) => p.category))];
 
   const filteredProducts = useMemo(() => {
@@ -25,7 +30,7 @@ function App() {
 
       let ratingMatch = true;
       if (rating > 0) {
-        ratingMatch = product.rating >= rating && product.rating < rating + 1;
+        ratingMatch = product.rating >= rating;
       }
 
       // Price Match Filter logic (NEW)
@@ -83,6 +88,36 @@ function App() {
     }, 1400);
   };
 
+  const openProductDetails = (product) => {
+    setSelectedProduct(product);
+    setDetailModalOpen(true);
+  };
+
+  const anyOverlayOpen = mobileFiltersOpen || cartOpen || detailModalOpen;
+
+  // Lock background scroll while any drawer/modal is open (mobile + desktop)
+  useEffect(() => {
+    if (anyOverlayOpen) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [anyOverlayOpen]);
+
+  // Close the topmost overlay on Escape
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key !== "Escape") return;
+      if (detailModalOpen) setDetailModalOpen(false);
+      else if (cartOpen) setCartOpen(false);
+      else if (mobileFiltersOpen) setMobileFiltersOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [detailModalOpen, cartOpen, mobileFiltersOpen]);
+
   return (
     <div className="min-h-screen bg-cream">
       <Header
@@ -107,7 +142,7 @@ function App() {
         />
 
         {/* Products */}
-        <main className="flex-1 p-5 sm:p-8">
+        <main className="flex-1 min-w-0 p-5 sm:p-8 max-w-screen-2xl mx-auto w-full">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
             <p className="text-ink/60 text-sm font-medium">
               {filteredProducts.length}{" "}
@@ -129,7 +164,7 @@ function App() {
           {filteredProducts.length === 0 ? (
             <EmptyState onReset={resetFilters} />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
               {filteredProducts.map((product) => (
                 <ProductCard
                   key={product.id}
@@ -138,6 +173,7 @@ function App() {
                   onAdd={() => updateQty(product.id, 1)}
                   onIncrement={() => updateQty(product.id, 1)}
                   onDecrement={() => updateQty(product.id, -1)}
+                  onOpenDetails={() => openProductDetails(product)}
                 />
               ))}
             </div>
@@ -153,6 +189,16 @@ function App() {
         onDecrement={(id) => updateQty(id, -1)}
         onPlaceOrder={handlePlaceOrder}
         placed={orderPlaced}
+      />
+
+      <ProductDetailModal
+        isOpen={detailModalOpen}
+        onClose={() => setDetailModalOpen(false)}
+        product={selectedProduct}
+        quantity={selectedProduct ? cart[selectedProduct.id] || 0 : 0}
+        onAdd={() => updateQty(selectedProduct.id, 1)}
+        onIncrement={() => updateQty(selectedProduct.id, 1)}
+        onDecrement={() => updateQty(selectedProduct.id, -1)}
       />
     </div>
   );

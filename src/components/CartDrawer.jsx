@@ -16,7 +16,7 @@ function CartDrawer({
       )}
 
       <aside
-        className={`fixed top-0 right-0 z-50 h-screen w-full sm:w-96 bg-white flex flex-col transition-transform duration-300 ${
+        className={`fixed top-0 right-0 z-50 h-dvh w-full sm:w-96 bg-white flex flex-col transition-transform duration-300 ${
           isOpen ? "translate-x-0 animate-slide-in" : "translate-x-full"
         }`}
       >

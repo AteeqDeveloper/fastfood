@@ -30,7 +30,7 @@ function Sidebar({
       <aside
         className={`
           fixed lg:sticky top-0 lg:top-[64px] left-0 z-50 lg:z-0
-          h-screen lg:h-[calc(100vh-64px)] w-72 lg:w-64 shrink-0
+          h-dvh lg:h-[calc(100dvh-64px)] w-72 lg:w-64 shrink-0
           bg-white lg:bg-transparent p-5 overflow-y-auto scroll-thin
           transition-transform duration-300
           ${isOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0
@@ -56,8 +56,8 @@ function Sidebar({
               key={cat}
               onClick={() => setCategory(cat)}
               className={`px-3 py-1.5 rounded-full text-sm font-semibold border-2 transition-colors ${category === cat
-                  ? "bg-chili border-chili text-white"
-                  : "bg-transparent border-ink/15 text-ink/70 hover:border-chili/50"
+                ? "bg-chili border-chili text-white"
+                : "bg-transparent border-ink/15 text-ink/70 hover:border-chili/50"
                 }`}
             >
               {cat}
@@ -95,8 +95,8 @@ function Sidebar({
               key={opt.value}
               onClick={() => setRating(opt.value)}
               className={`text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${rating === opt.value
-                  ? "bg-turmeric/20 text-ink border border-turmeric"
-                  : "bg-transparent text-ink/70 border border-transparent hover:bg-cream"
+                ? "bg-turmeric/20 text-ink border border-turmeric"
+                : "bg-transparent text-ink/70 border border-transparent hover:bg-cream"
                 }`}
             >
               {opt.value > 0 ? `⭐ ${opt.label}` : opt.label}

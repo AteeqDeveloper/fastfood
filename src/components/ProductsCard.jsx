@@ -1,10 +1,13 @@
 import { countReviews } from "../data/product-rating";
 
-function ProductCard({ product, quantity, onAdd, onIncrement, onDecrement }) {
+function ProductCard({ product, quantity, onAdd, onIncrement, onDecrement, onOpenDetails }) {
   const reviewCount = countReviews(product.id);
 
   return (
-    <div className="group bg-white rounded-2xl shadow-md hover:shadow-xl overflow-hidden transition-all duration-300 hover:-translate-y-1 animate-pop-in">
+    <div
+      onClick={onOpenDetails}
+      className="group bg-white rounded-2xl shadow-md hover:shadow-xl overflow-hidden transition-all duration-300 hover:-translate-y-1 animate-pop-in cursor-pointer"
+    >
       {/* Image + stamp badge */}
       <div className="relative overflow-hidden">
         <img
@@ -45,7 +48,10 @@ function ProductCard({ product, quantity, onAdd, onIncrement, onDecrement }) {
           </h3>
 
           {quantity > 0 ? (
-            <div className="flex items-center gap-1 bg-cream rounded-full px-1 py-1">
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 bg-cream rounded-full px-1 py-1"
+            >
               <button
                 onClick={onDecrement}
                 className="w-7 h-7 rounded-full bg-white text-ink font-bold flex items-center justify-center hover:bg-chili hover:text-white transition-colors"
@@ -66,7 +72,10 @@ function ProductCard({ product, quantity, onAdd, onIncrement, onDecrement }) {
             </div>
           ) : (
             <button
-              onClick={onAdd}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAdd();
+              }}
               className="bg-chili text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-chili-dark transition-colors"
             >
               Add to Cart
@@ -78,4 +87,4 @@ function ProductCard({ product, quantity, onAdd, onIncrement, onDecrement }) {
   );
 }
 
-export default ProductCard;
+export default ProductCard; 

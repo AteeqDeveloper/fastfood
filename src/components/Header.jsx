@@ -19,7 +19,7 @@ function Header({ search, setSearch, cartCount, onCartClick, onFiltersClick }) {
         </div>
 
         {/* Search */}
-        <div className="flex-1 max-w-xl">
+        <div className="flex-1 min-w-0 max-w-xl">
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-light/80 text-sm">
               🔍
@@ -29,7 +29,7 @@ function Header({ search, setSearch, cartCount, onCartClick, onFiltersClick }) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search burgers, pizza, shawarma..."
-              className="w-full bg-cream text-ink placeholder:text-ink/40 rounded-full pl-9 pr-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-chili"
+              className="w-full min-w-0 bg-cream text-ink placeholder:text-ink/40 rounded-full pl-9 pr-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-chili"
             />
           </div>
         </div>
