@@ -1,16 +1,17 @@
 import { useState, useMemo, useEffect } from "react";
 import { products } from "./data/products";
-import ProductCard from "./components/ProductsCard";
 import Header from "./components/Header";
-import Sidebar from "./components/Sidebar";
-import EmptyState from "./components/EmptyState";
+import HomePage from "./components/HomePage";
+import CollectionPage from "./components/CollectionPage";
 import CartDrawer from "./components/CartDrawer";
 import ProductDetailModal from "./components/ProductDetailModal";
 
 function App() {
+  const [page, setPage] = useState("home"); // "home" | "collection"
+
   const [category, setCategory] = useState("All");
   const [rating, setRating] = useState(0);
-  const [priceRange, setPriceRange] = useState(1500); // <-- New State (Max price initially 1500)
+  const [priceRange, setPriceRange] = useState(1500);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("default");
   const [cart, setCart] = useState({});
@@ -33,14 +34,13 @@ function App() {
         ratingMatch = product.rating >= rating;
       }
 
-      // Price Match Filter logic (NEW)
       const priceMatch = product.price <= priceRange;
 
       const searchMatch =
         search.trim() === "" ||
         product.title.toLowerCase().includes(search.trim().toLowerCase());
 
-      return categoryMatch && ratingMatch && priceMatch && searchMatch; // <-- Included priceMatch
+      return categoryMatch && ratingMatch && priceMatch && searchMatch;
     });
 
     if (sortBy === "price-asc") list = [...list].sort((a, b) => a.price - b.price);
@@ -48,7 +48,13 @@ function App() {
     if (sortBy === "rating-desc") list = [...list].sort((a, b) => b.rating - a.rating);
 
     return list;
-  }, [category, rating, priceRange, search, sortBy]); // <-- Added priceRange to dependencies
+  }, [category, rating, priceRange, search, sortBy]);
+
+  // Top-rated dishes shown on the home page
+  const topProducts = useMemo(
+    () => [...products].sort((a, b) => b.rating - a.rating).slice(0, 4),
+    []
+  );
 
   const cartCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
 
@@ -75,11 +81,11 @@ function App() {
   const resetFilters = () => {
     setCategory("All");
     setRating(0);
-    setPriceRange(1500); // <-- Reset price filter
+    setPriceRange(1500);
     setSearch("");
   };
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = (customerDetails) => {
     setOrderPlaced(true);
     setTimeout(() => {
       setOrderPlaced(false);
@@ -92,6 +98,20 @@ function App() {
     setSelectedProduct(product);
     setDetailModalOpen(true);
   };
+
+  const goToCollection = () => setPage("collection");
+
+  const handleCategorySelect = (cat) => {
+    setCategory(cat);
+    setPage("collection");
+  };
+
+  // Typing a search on the home page should jump straight to results
+  useEffect(() => {
+    if (page === "home" && search.trim() !== "") {
+      setPage("collection");
+    }
+  }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const anyOverlayOpen = mobileFiltersOpen || cartOpen || detailModalOpen;
 
@@ -126,60 +146,44 @@ function App() {
         cartCount={cartCount}
         onCartClick={() => setCartOpen(true)}
         onFiltersClick={() => setMobileFiltersOpen(true)}
+        page={page}
+        onNavigate={setPage}
       />
 
-      <div className="flex">
-        <Sidebar
+      {page === "home" ? (
+        <HomePage
+          topProducts={topProducts}
+          categories={categories}
+          onExplore={goToCollection}
+          onCategorySelect={handleCategorySelect}
+          cart={cart}
+          onAdd={(id) => updateQty(id, 1)}
+          onIncrement={(id) => updateQty(id, 1)}
+          onDecrement={(id) => updateQty(id, -1)}
+          onOpenDetails={openProductDetails}
+        />
+      ) : (
+        <CollectionPage
           categories={categories}
           category={category}
           setCategory={setCategory}
           rating={rating}
           setRating={setRating}
-          priceRange={priceRange}       // <-- Passed prop
-          setPriceRange={setPriceRange} // <-- Passed prop
-          isOpen={mobileFiltersOpen}
-          onClose={() => setMobileFiltersOpen(false)}
+          priceRange={priceRange}
+          setPriceRange={setPriceRange}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          filteredProducts={filteredProducts}
+          cart={cart}
+          onAdd={(id) => updateQty(id, 1)}
+          onIncrement={(id) => updateQty(id, 1)}
+          onDecrement={(id) => updateQty(id, -1)}
+          onOpenDetails={openProductDetails}
+          mobileFiltersOpen={mobileFiltersOpen}
+          onCloseMobileFilters={() => setMobileFiltersOpen(false)}
+          onResetFilters={resetFilters}
         />
-
-        {/* Products */}
-        <main className="flex-1 min-w-0 p-5 sm:p-8 max-w-screen-2xl mx-auto w-full">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-            <p className="text-ink/60 text-sm font-medium">
-              {filteredProducts.length}{" "}
-              {filteredProducts.length === 1 ? "dish" : "dishes"} found
-            </p>
-
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="bg-white border border-ink/15 rounded-full px-4 py-2 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-chili self-start sm:self-auto"
-            >
-              <option value="default">Sort: Featured</option>
-              <option value="price-asc">Price: Low to High</option>
-              <option value="price-desc">Price: High to Low</option>
-              <option value="rating-desc">Rating: Highest First</option>
-            </select>
-          </div>
-
-          {filteredProducts.length === 0 ? (
-            <EmptyState onReset={resetFilters} />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
-              {filteredProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  quantity={cart[product.id] || 0}
-                  onAdd={() => updateQty(product.id, 1)}
-                  onIncrement={() => updateQty(product.id, 1)}
-                  onDecrement={() => updateQty(product.id, -1)}
-                  onOpenDetails={() => openProductDetails(product)}
-                />
-              ))}
-            </div>
-          )}
-        </main>
-      </div>
+      )}
 
       <CartDrawer
         isOpen={cartOpen}

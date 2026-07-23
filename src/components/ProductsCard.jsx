@@ -87,4 +87,4 @@ function ProductCard({ product, quantity, onAdd, onIncrement, onDecrement, onOpe
   );
 }
 
-export default ProductCard; 
+export default ProductCard;
