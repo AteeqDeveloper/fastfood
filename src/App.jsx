@@ -1,13 +1,30 @@
 import { useState, useMemo, useEffect } from "react";
-import { products } from "./data/products";
+import { products as initialProducts } from "./data/products";
 import Header from "./components/Header";
 import HomePage from "./components/HomePage";
 import CollectionPage from "./components/CollectionPage";
 import CartDrawer from "./components/CartDrawer";
 import ProductDetailModal from "./components/ProductDetailModal";
+import AdminDashboard from "./components/AdminDashboard";
+
+const STORAGE_KEY = "crispybites_products";
+
+function loadProducts() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {
+    /* ignore */
+  }
+  return initialProducts;
+}
 
 function App() {
-  const [page, setPage] = useState("home"); // "home" | "collection"
+  const [page, setPage] = useState("home"); // "home" | "collection" | "admin"
+  const [products, setProducts] = useState(loadProducts);
 
   const [category, setCategory] = useState("All");
   const [rating, setRating] = useState(0);
@@ -19,61 +36,58 @@ function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
 
-  // Product detail modal state
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
+
+  // Persist products
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+  }, [products]);
 
   const categories = ["All", ...new Set(products.map((p) => p.category))];
 
   const filteredProducts = useMemo(() => {
     let list = products.filter((product) => {
       const categoryMatch = category === "All" || product.category === category;
-
       let ratingMatch = true;
-      if (rating > 0) {
-        ratingMatch = product.rating >= rating;
-      }
-
+      if (rating > 0) ratingMatch = product.rating >= rating;
       const priceMatch = product.price <= priceRange;
-
       const searchMatch =
         search.trim() === "" ||
         product.title.toLowerCase().includes(search.trim().toLowerCase());
-
       return categoryMatch && ratingMatch && priceMatch && searchMatch;
     });
 
     if (sortBy === "price-asc") list = [...list].sort((a, b) => a.price - b.price);
     if (sortBy === "price-desc") list = [...list].sort((a, b) => b.price - a.price);
-    if (sortBy === "rating-desc") list = [...list].sort((a, b) => b.rating - a.rating);
+    if (sortBy === "rating-desc")
+      list = [...list].sort((a, b) => b.rating - a.rating);
 
     return list;
-  }, [category, rating, priceRange, search, sortBy]);
+  }, [products, category, rating, priceRange, search, sortBy]);
 
-  // Top-rated dishes shown on the home page
   const topProducts = useMemo(
     () => [...products].sort((a, b) => b.rating - a.rating).slice(0, 4),
-    []
+    [products]
   );
 
   const cartCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
 
   const cartItems = Object.entries(cart)
     .filter(([, qty]) => qty > 0)
-    .map(([id, qty]) => ({
-      ...products.find((p) => p.id === Number(id)),
-      qty,
-    }));
+    .map(([id, qty]) => {
+      const product = products.find((p) => p.id === Number(id));
+      if (!product) return null;
+      return { ...product, qty };
+    })
+    .filter(Boolean);
 
   const updateQty = (id, delta) => {
     setCart((prev) => {
       const next = { ...prev };
       const newQty = (next[id] || 0) + delta;
-      if (newQty <= 0) {
-        delete next[id];
-      } else {
-        next[id] = newQty;
-      }
+      if (newQty <= 0) delete next[id];
+      else next[id] = newQty;
       return next;
     });
   };
@@ -85,7 +99,7 @@ function App() {
     setSearch("");
   };
 
-  const handlePlaceOrder = (customerDetails) => {
+  const handlePlaceOrder = () => {
     setOrderPlaced(true);
     setTimeout(() => {
       setOrderPlaced(false);
@@ -106,7 +120,27 @@ function App() {
     setPage("collection");
   };
 
-  // Typing a search on the home page should jump straight to results
+  // Admin CRUD
+  const handleAddProduct = (payload) => {
+    const maxId = products.reduce((m, p) => Math.max(m, p.id), 0);
+    setProducts((prev) => [...prev, { id: maxId + 1, ...payload }]);
+  };
+
+  const handleUpdateProduct = (id, payload) => {
+    setProducts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, ...payload } : p))
+    );
+  };
+
+  const handleDeleteProduct = (id) => {
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+    setCart((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
+
   useEffect(() => {
     if (page === "home" && search.trim() !== "") {
       setPage("collection");
@@ -115,18 +149,16 @@ function App() {
 
   const anyOverlayOpen = mobileFiltersOpen || cartOpen || detailModalOpen;
 
-  // Lock background scroll while any drawer/modal is open (mobile + desktop)
   useEffect(() => {
     if (anyOverlayOpen) {
-      const prevOverflow = document.body.style.overflow;
+      const prev = document.body.style.overflow;
       document.body.style.overflow = "hidden";
       return () => {
-        document.body.style.overflow = prevOverflow;
+        document.body.style.overflow = prev;
       };
     }
   }, [anyOverlayOpen]);
 
-  // Close the topmost overlay on Escape
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key !== "Escape") return;
@@ -137,6 +169,19 @@ function App() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [detailModalOpen, cartOpen, mobileFiltersOpen]);
+
+  // Full-page admin
+  if (page === "admin") {
+    return (
+      <AdminDashboard
+        products={products}
+        onAdd={handleAddProduct}
+        onUpdate={handleUpdateProduct}
+        onDelete={handleDeleteProduct}
+        onBack={() => setPage("home")}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-cream">

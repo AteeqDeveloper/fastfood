@@ -51,6 +51,13 @@ function Header({
           >
             Menu
           </button>
+          <button
+            onClick={() => onNavigate("admin")}
+            className="px-3 py-1.5 rounded-full text-sm font-semibold text-cream/70 hover:text-cream transition-colors"
+            aria-label="Admin Dashboard"
+          >
+            ⚙ Admin
+          </button>
         </nav>
 
         {/* Search */}
@@ -103,6 +110,12 @@ function Header({
             }`}
         >
           Menu
+        </button>
+        <button
+          onClick={() => onNavigate("admin")}
+          className="px-3 py-1 rounded-full text-xs font-semibold bg-charcoal-light text-cream/70"
+        >
+          ⚙ Admin
         </button>
       </nav>
     </header>

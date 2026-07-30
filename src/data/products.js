@@ -46,7 +46,7 @@ export const products = [
     {
         id: 5,
         image:
-            "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80",
+            "https://images.unsplash.com/photo-1628840042765-356cda07504e?w=800&q=80",
         title: "Pepperoni Pizza",
         description:
             "Loaded with pepperoni, mozzarella cheese, and rich tomato sauce.",
