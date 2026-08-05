@@ -1,4 +1,6 @@
 import ProductCard from "./ProductsCard";
+import Carousel from "./Carousel";
+import useReveal from "../hooks/useReveal";
 
 function HomePage({
     topProducts,
@@ -28,6 +30,9 @@ function HomePage({
             copy: "Add your address at checkout and track it landing hot, wrapped, and stamped.",
         },
     ];
+
+    const [picksRef, picksVisible] = useReveal();
+    const [stepsRef, stepsVisible] = useReveal();
 
     return (
         <main className="flex-1 min-w-0">
@@ -61,31 +66,18 @@ function HomePage({
                         </div>
                     </div>
 
-                    {/* Signature stamp visual, anchored top pick */}
-                    {topProducts[0] && (
-                        <div className="relative z-10 mx-auto lg:mx-0 w-full max-w-sm">
-                            <div className="relative rounded-3xl overflow-hidden shadow-2xl rotate-2">
-                                <img
-                                    src={topProducts[0].image}
-                                    alt={topProducts[0].title}
-                                    className="w-full h-72 object-cover"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-charcoal/80 via-transparent to-transparent" />
-                                <div className="absolute bottom-4 left-4 right-4">
-                                    <p className="font-display font-bold text-lg text-cream">
-                                        {topProducts[0].title}
-                                    </p>
-                                    <p className="text-cream/70 text-xs">
-                                        Today's highest-rated pick
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="stamp absolute -top-5 -right-4 bg-turmeric text-charcoal rounded-full w-20 h-20 flex flex-col items-center justify-center shadow-md -rotate-6">
-                                <span className="text-base font-extrabold leading-none">
-                                    {topProducts[0].rating}
-                                </span>
-                                <span className="text-[10px] font-semibold">TOP RATED</span>
-                            </div>
+                    {/* Rotating carousel of today's top-rated picks */}
+                    {topProducts.length > 0 && (
+                        <div className="relative z-10 w-full">
+                            <Carousel
+                                items={topProducts.map((p) => ({
+                                    id: p.id,
+                                    image: p.image,
+                                    title: p.title,
+                                    rating: p.rating,
+                                    subtitle: "Today's highest-rated pick",
+                                }))}
+                            />
                         </div>
                     )}
                 </div>
@@ -115,7 +107,11 @@ function HomePage({
             </section>
 
             {/* TODAY'S PICKS */}
-            <section className="max-w-screen-2xl mx-auto px-5 sm:px-8 pt-16 pb-4">
+            <section
+                ref={picksRef}
+                className={`max-w-screen-2xl mx-auto px-5 sm:px-8 pt-16 pb-4 reveal ${picksVisible ? "reveal-visible" : ""
+                    }`}
+            >
                 <div className="flex items-end justify-between mb-6">
                     <div>
                         <h2 className="font-display font-extrabold text-2xl sm:text-3xl text-ink">
@@ -149,13 +145,22 @@ function HomePage({
             </section>
 
             {/* HOW IT WORKS */}
-            <section className="max-w-screen-2xl mx-auto px-5 sm:px-8 py-16">
+            <section
+                ref={stepsRef}
+                className={`max-w-screen-2xl mx-auto px-5 sm:px-8 py-16 reveal ${stepsVisible ? "reveal-visible" : ""
+                    }`}
+            >
                 <h2 className="font-display font-extrabold text-2xl sm:text-3xl text-ink mb-10 text-center">
                     From craving to doorstep
                 </h2>
                 <div className="grid sm:grid-cols-3 gap-8">
-                    {steps.map((step) => (
-                        <div key={step.n} className="flex flex-col items-center text-center">
+                    {steps.map((step, i) => (
+                        <div
+                            key={step.n}
+                            className={`flex flex-col items-center text-center reveal ${stepsVisible ? "reveal-visible" : ""
+                                }`}
+                            style={{ animationDelay: stepsVisible ? `${i * 0.15}s` : "0s" }}
+                        >
                             <div className="stamp bg-cream w-16 h-16 rounded-full flex items-center justify-center font-display font-extrabold text-lg text-ink mb-4">
                                 {step.n}
                             </div>

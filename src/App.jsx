@@ -8,6 +8,7 @@ import ProductDetailModal from "./components/ProductDetailModal";
 import AdminDashboard from "./components/AdminDashboard";
 
 const STORAGE_KEY = "crispybites_products";
+const CART_STORAGE_KEY = "crispybites_cart";
 
 function loadProducts() {
   try {
@@ -22,6 +23,19 @@ function loadProducts() {
   return initialProducts;
 }
 
+function loadCart() {
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") return parsed;
+    }
+  } catch {
+    /* ignore */
+  }
+  return {};
+}
+
 function App() {
   const [page, setPage] = useState("home"); // "home" | "collection" | "admin"
   const [products, setProducts] = useState(loadProducts);
@@ -31,7 +45,7 @@ function App() {
   const [priceRange, setPriceRange] = useState(1500);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("default");
-  const [cart, setCart] = useState({});
+  const [cart, setCart] = useState(loadCart);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
@@ -43,6 +57,11 @@ function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
   }, [products]);
+
+  // Persist cart
+  useEffect(() => {
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+  }, [cart]);
 
   const categories = ["All", ...new Set(products.map((p) => p.category))];
 
