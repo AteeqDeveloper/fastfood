@@ -1,12 +1,61 @@
-import { reviews } from "../data/product-rating";
+import { useState, useEffect } from "react";
+import { supabaseClient } from "../lib/supabaseClient";
 
 function ProductDetailModal({ product, isOpen, onClose, quantity, onIncrement, onDecrement, onAdd }) {
+    const [reviews, setReviews] = useState([]);
+    const [reviewsLoading, setReviewsLoading] = useState(false);
+    const [showReviewForm, setShowReviewForm] = useState(false);
+    const [reviewForm, setReviewForm] = useState({ username: "", review: "", rating: "5" });
+    const [submitting, setSubmitting] = useState(false);
+    const [submitted, setSubmitted] = useState(false);
+
+    useEffect(() => {
+        if (!isOpen || !product) return;
+
+        let cancelled = false;
+        setReviewsLoading(true);
+        setShowReviewForm(false);
+        setSubmitted(false);
+        setReviewForm({ username: "", review: "", rating: "5" });
+
+        supabase
+            .from("reviews")
+            .select("*")
+            .eq("product_id", product.id)
+            .eq("is_approved", true)
+            .order("created_at", { ascending: false })
+            .then(({ data, error }) => {
+                if (cancelled) return;
+                if (!error) setReviews(data || []);
+                setReviewsLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, product]);
+
     if (!isOpen || !product) return null;
 
-    // Filter reviews for this product
-    const productReviews = reviews.filter(
-        (r) => r.productid === product.id && r.isApproved
-    );
+    const handleSubmitReview = async (e) => {
+        e.preventDefault();
+        if (!reviewForm.username.trim() || !reviewForm.review.trim()) return;
+
+        setSubmitting(true);
+        const { error } = await supabaseClient.from("reviews").insert({
+            product_id: product.id,
+            username: reviewForm.username.trim(),
+            review: reviewForm.review.trim(),
+            rating: Number(reviewForm.rating),
+            is_approved: false,
+        });
+        setSubmitting(false);
+
+        if (!error) {
+            setSubmitted(true);
+            setShowReviewForm(false);
+        }
+    };
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300">
@@ -89,18 +138,100 @@ function ProductDetailModal({ product, isOpen, onClose, quantity, onIncrement, o
 
                         {/* Reviews list */}
                         <div className="mt-2">
-                            <h3 className="font-display font-bold text-base text-ink mb-2">
-                                Reviews ({productReviews.length})
-                            </h3>
-                            {productReviews.length === 0 ? (
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="font-display font-bold text-base text-ink">
+                                    Reviews ({reviews.length})
+                                </h3>
+                                {!showReviewForm && !submitted && (
+                                    <button
+                                        onClick={() => setShowReviewForm(true)}
+                                        className="text-xs font-semibold text-chili hover:text-chili-dark transition-colors"
+                                    >
+                                        + Write a review
+                                    </button>
+                                )}
+                            </div>
+
+                            {submitted && (
+                                <div className="bg-basil/10 border border-basil/30 text-basil text-xs font-medium rounded-xl px-3 py-2.5 mb-3">
+                                    Thanks! Your review was submitted and will show up once approved.
+                                </div>
+                            )}
+
+                            {showReviewForm && (
+                                <form
+                                    onSubmit={handleSubmitReview}
+                                    className="bg-cream/50 border border-ink/10 rounded-xl p-3 mb-3 flex flex-col gap-2"
+                                >
+                                    <input
+                                        type="text"
+                                        value={reviewForm.username}
+                                        onChange={(e) =>
+                                            setReviewForm((f) => ({ ...f, username: e.target.value }))
+                                        }
+                                        placeholder="Your name"
+                                        required
+                                        className="w-full bg-white rounded-lg px-3 py-2 text-xs text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 focus:ring-chili"
+                                    />
+                                    <textarea
+                                        value={reviewForm.review}
+                                        onChange={(e) =>
+                                            setReviewForm((f) => ({ ...f, review: e.target.value }))
+                                        }
+                                        placeholder="What did you think?"
+                                        rows={2}
+                                        required
+                                        className="w-full bg-white rounded-lg px-3 py-2 text-xs text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 focus:ring-chili resize-none"
+                                    />
+                                    <div className="flex items-center gap-2">
+                                        <label className="text-[10px] font-semibold text-ink/50 uppercase">
+                                            Rating
+                                        </label>
+                                        <select
+                                            value={reviewForm.rating}
+                                            onChange={(e) =>
+                                                setReviewForm((f) => ({ ...f, rating: e.target.value }))
+                                            }
+                                            className="bg-white rounded-lg px-2 py-1 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-chili"
+                                        >
+                                            {[5, 4, 3, 2, 1].map((n) => (
+                                                <option key={n} value={n}>
+                                                    {n} ★
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <div className="flex-1" />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowReviewForm(false)}
+                                            className="text-xs font-semibold text-ink/50 hover:text-ink px-2"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={submitting}
+                                            className="bg-chili hover:bg-chili-dark disabled:opacity-60 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
+                                        >
+                                            {submitting ? "Sending..." : "Submit"}
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
+
+                            {reviewsLoading ? (
+                                <p className="text-ink/40 text-xs italic">Loading reviews...</p>
+                            ) : reviews.length === 0 ? (
                                 <p className="text-ink/40 text-xs italic">No reviews yet.</p>
                             ) : (
                                 <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto pr-1 scroll-thin">
-                                    {productReviews.map((rev) => (
+                                    {reviews.map((rev) => (
                                         <div key={rev.id} className="bg-cream/40 p-2.5 rounded-xl border border-ink/5">
                                             <div className="flex justify-between items-center mb-1">
                                                 <span className="text-xs font-bold text-ink">{rev.username}</span>
-                                                <span className="text-[10px] text-ink/40">{rev.date}</span>
+                                                <span className="text-[10px] text-ink/40">
+                                                    {new Date(rev.created_at).toLocaleDateString()}
+                                                </span>
                                             </div>
                                             <div className="text-[10px] text-turmeric font-semibold mb-1">
                                                 ★ {rev.rating} / 5

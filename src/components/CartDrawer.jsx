@@ -8,6 +8,7 @@ function CartDrawer({
   onDecrement,
   onPlaceOrder,
   placed,
+  placing = false,
 }) {
   const total = items.reduce((sum, item) => sum + item.price * item.qty, 0);
 
@@ -211,10 +212,10 @@ function CartDrawer({
               </div>
               <button
                 onClick={handleConfirm}
-                disabled={placed}
+                disabled={placed || placing}
                 className="w-full bg-chili hover:bg-chili-dark disabled:opacity-70 transition-colors text-white font-semibold py-3 rounded-full"
               >
-                {placed ? "Order Placed ✓" : "Confirm Order"}
+                {placed ? "Order Placed ✓" : placing ? "Placing Order..." : "Confirm Order"}
               </button>
             </div>
           </>

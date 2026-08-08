@@ -1,5 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { supabaseClient } from "../lib/supabaseClient";
 import AdminAnalytics from "./AdminAnalytics";
+import AdminLogin from "./AdminLogin";
 
 const CATEGORIES = ["Burger", "Shawarma", "Pizza", "Sides", "Drinks"];
 
@@ -12,8 +14,37 @@ const emptyForm = {
   rating: "4.5",
 };
 
+const ORDER_STATUSES = ["Preparing", "Out for delivery", "Delivered", "Cancelled"];
+
+const orderStatusStyles = {
+  Preparing: "bg-turmeric/20 text-turmeric",
+  "Out for delivery": "bg-blue-100 text-blue-700",
+  Delivered: "bg-basil/15 text-basil",
+  Cancelled: "bg-red-100 text-red-600",
+};
+
 function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
-  const [tab, setTab] = useState("products"); // "products" | "analytics"
+  // ---- Auth ----
+  const [session, setSession] = useState(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
+
+  useEffect(() => {
+    supabaseClient.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setSessionChecked(true);
+    });
+    const { data: listener } = supabaseClient.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabaseClient.auth.signOut();
+  };
+
+  // ---- Tabs ----
+  const [tab, setTab] = useState("products"); // "products" | "orders" | "reviews" | "analytics"
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState("");
@@ -22,6 +53,66 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
   const [toast, setToast] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [imagePreviewError, setImagePreviewError] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // ---- Orders ----
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+
+  const fetchOrders = async () => {
+    setOrdersLoading(true);
+    const { data, error } = await supabaseClient
+      .from("orders")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (!error) setOrders(data || []);
+    setOrdersLoading(false);
+  };
+
+  const handleUpdateOrderStatus = async (id, status) => {
+    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
+    const { error } = await supabaseClient.from("orders").update({ status }).eq("id", id);
+    if (error) showToast("Could not update order status", "error");
+  };
+
+  // ---- Reviews ----
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+
+  const fetchReviews = async () => {
+    setReviewsLoading(true);
+    const { data, error } = await supabaseClient
+      .from("reviews")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (!error) setReviews(data || []);
+    setReviewsLoading(false);
+  };
+
+  const handleApproveReview = async (id) => {
+    setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, is_approved: true } : r)));
+    const { error } = await supabaseClient.from("reviews").update({ is_approved: true }).eq("id", id);
+    if (error) showToast("Could not approve review", "error");
+  };
+
+  const handleRejectReview = async (id) => {
+    setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, is_approved: false } : r)));
+    const { error } = await supabaseClient.from("reviews").update({ is_approved: false }).eq("id", id);
+    if (error) showToast("Could not update review", "error");
+  };
+
+  const handleDeleteReview = async (id) => {
+    setReviews((prev) => prev.filter((r) => r.id !== id));
+    const { error } = await supabaseClient.from("reviews").delete().eq("id", id);
+    if (error) showToast("Could not delete review", "error");
+    else showToast("Review deleted", "error");
+  };
+
+  useEffect(() => {
+    if (!session) return;
+    fetchOrders();
+    fetchReviews();
+  }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
@@ -51,6 +142,8 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
     return { total, avgPrice, byCat };
   }, [products]);
 
+  const pendingReviewsCount = reviews.filter((r) => !r.is_approved).length;
+
   const handleChange = (field) => (e) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
     setErrors((prev) => ({ ...prev, [field]: "" }));
@@ -69,7 +162,7 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
 
@@ -82,13 +175,15 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
       rating: Number(form.rating),
     };
 
+    setSubmitting(true);
     if (editingId) {
-      onUpdate(editingId, payload);
+      await onUpdate(editingId, payload);
       showToast("Product updated successfully");
     } else {
-      onAdd(payload);
+      await onAdd(payload);
       showToast("Product added successfully");
     }
+    setSubmitting(false);
     setForm(emptyForm);
     setEditingId(null);
     setImagePreviewError(false);
@@ -116,12 +211,25 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
     setImagePreviewError(false);
   };
 
-  const handleDelete = (id) => {
-    onDelete(id);
+  const handleDelete = async (id) => {
+    await onDelete(id);
     setConfirmDelete(null);
     if (editingId === id) cancelEdit();
     showToast("Product deleted", "error");
   };
+
+  // ---- Auth gate ----
+  if (!sessionChecked) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <p className="text-ink/40 text-sm font-medium">Checking session…</p>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <AdminLogin onBack={onBack} />;
+  }
 
   return (
     <div className="min-h-screen bg-cream">
@@ -129,8 +237,8 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
       {toast && (
         <div
           className={`fixed top-4 right-4 z-[200] px-5 py-3 rounded-xl shadow-lg text-sm font-semibold animate-pop-in ${toast.type === "error"
-              ? "bg-red-500 text-white"
-              : "bg-basil text-white"
+            ? "bg-red-500 text-white"
+            : "bg-basil text-white"
             }`}
         >
           {toast.msg}
@@ -153,7 +261,7 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
                 Admin <span className="text-chili">Dashboard</span>
               </h1>
               <p className="text-cream/50 text-xs hidden sm:block">
-                Manage menu items
+                {session.user?.email}
               </p>
             </div>
           </div>
@@ -167,6 +275,25 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
                 Products
               </button>
               <button
+                onClick={() => setTab("orders")}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${tab === "orders" ? "bg-chili text-white" : "text-cream/60 hover:text-cream"
+                  }`}
+              >
+                Orders
+              </button>
+              <button
+                onClick={() => setTab("reviews")}
+                className={`relative px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${tab === "reviews" ? "bg-chili text-white" : "text-cream/60 hover:text-cream"
+                  }`}
+              >
+                Reviews
+                {pendingReviewsCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-turmeric text-charcoal text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                    {pendingReviewsCount}
+                  </span>
+                )}
+              </button>
+              <button
                 onClick={() => setTab("analytics")}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${tab === "analytics" ? "bg-chili text-white" : "text-cream/60 hover:text-cream"
                   }`}
@@ -174,24 +301,41 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
                 Analytics
               </button>
             </div>
-            <span className="text-xs font-semibold bg-chili/20 text-chili px-3 py-1 rounded-full">
-              {stats.total} products
-            </span>
+            <button
+              onClick={handleSignOut}
+              className="text-xs font-semibold bg-charcoal-light hover:bg-chili text-cream/80 hover:text-white px-3 py-1.5 rounded-full transition-colors"
+            >
+              Sign Out
+            </button>
           </div>
         </div>
 
         {/* Tab switcher - mobile */}
-        <div className="sm:hidden flex items-center gap-2 px-4 pb-3 -mt-1">
+        <div className="sm:hidden flex items-center gap-2 px-4 pb-3 -mt-1 overflow-x-auto">
           <button
             onClick={() => setTab("products")}
-            className={`flex-1 py-1.5 rounded-full text-xs font-semibold transition-colors ${tab === "products" ? "bg-chili text-white" : "bg-charcoal-light text-cream/60"
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${tab === "products" ? "bg-chili text-white" : "bg-charcoal-light text-cream/60"
               }`}
           >
             Products
           </button>
           <button
+            onClick={() => setTab("orders")}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${tab === "orders" ? "bg-chili text-white" : "bg-charcoal-light text-cream/60"
+              }`}
+          >
+            Orders
+          </button>
+          <button
+            onClick={() => setTab("reviews")}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${tab === "reviews" ? "bg-chili text-white" : "bg-charcoal-light text-cream/60"
+              }`}
+          >
+            Reviews {pendingReviewsCount > 0 && `(${pendingReviewsCount})`}
+          </button>
+          <button
             onClick={() => setTab("analytics")}
-            className={`flex-1 py-1.5 rounded-full text-xs font-semibold transition-colors ${tab === "analytics" ? "bg-chili text-white" : "bg-charcoal-light text-cream/60"
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${tab === "analytics" ? "bg-chili text-white" : "bg-charcoal-light text-cream/60"
               }`}
           >
             Analytics
@@ -202,6 +346,157 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {tab === "analytics" ? (
           <AdminAnalytics products={products} />
+        ) : tab === "orders" ? (
+          <div className="flex flex-col gap-3">
+            {ordersLoading ? (
+              <p className="text-ink/40 text-sm text-center py-12">Loading orders…</p>
+            ) : orders.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-ink/5 p-12 text-center">
+                <p className="text-3xl mb-2">🧾</p>
+                <p className="text-ink/60 text-sm">
+                  No orders yet. They'll show up here as soon as a customer checks out.
+                </p>
+              </div>
+            ) : (
+              orders.map((order) => (
+                <div
+                  key={order.id}
+                  className="bg-white rounded-2xl border border-ink/5 shadow-sm p-4 sm:p-5"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-display font-bold text-sm sm:text-base text-ink">
+                          {order.id}
+                        </h3>
+                        <span
+                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${orderStatusStyles[order.status] || "bg-cream text-ink/60"
+                            }`}
+                        >
+                          {order.status}
+                        </span>
+                      </div>
+                      <p className="text-ink/60 text-xs mt-1">
+                        {order.customer} · {order.phone || "no phone"}
+                      </p>
+                      {order.address && (
+                        <p className="text-ink/40 text-xs mt-0.5 max-w-md">
+                          {order.address}
+                        </p>
+                      )}
+                      <p className="text-ink/30 text-[10px] mt-1">
+                        {new Date(order.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-display font-extrabold text-lg text-chili">
+                        Rs. {order.total}
+                      </p>
+                      <p className="text-ink/40 text-xs">
+                        {order.items.reduce((s, i) => s + i.qty, 0)} items
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 text-xs text-ink/60 mb-3 border-t border-ink/5 pt-3">
+                    {order.items.map((item) => (
+                      <span
+                        key={item.id}
+                        className="bg-cream px-2.5 py-1 rounded-full"
+                      >
+                        {item.title} × {item.qty}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {ORDER_STATUSES.map((status) => (
+                      <button
+                        key={status}
+                        onClick={() => handleUpdateOrderStatus(order.id, status)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-colors ${order.status === status
+                          ? "bg-chili border-chili text-white"
+                          : "bg-transparent border-ink/15 text-ink/60 hover:border-chili/50"
+                          }`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        ) : tab === "reviews" ? (
+          <div className="flex flex-col gap-3">
+            {reviewsLoading ? (
+              <p className="text-ink/40 text-sm text-center py-12">Loading reviews…</p>
+            ) : reviews.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-ink/5 p-12 text-center">
+                <p className="text-3xl mb-2">💬</p>
+                <p className="text-ink/60 text-sm">No reviews yet.</p>
+              </div>
+            ) : (
+              reviews.map((rev) => {
+                const product = products.find((p) => p.id === rev.product_id);
+                return (
+                  <div
+                    key={rev.id}
+                    className={`bg-white rounded-2xl border shadow-sm p-4 sm:p-5 ${rev.is_approved ? "border-ink/5" : "border-turmeric"
+                      }`}
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm text-ink">
+                            {rev.username}
+                          </span>
+                          <span className="text-turmeric text-xs font-semibold">
+                            ★ {rev.rating}
+                          </span>
+                          <span
+                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${rev.is_approved
+                              ? "bg-basil/15 text-basil"
+                              : "bg-turmeric/20 text-turmeric"
+                              }`}
+                          >
+                            {rev.is_approved ? "Approved" : "Pending"}
+                          </span>
+                        </div>
+                        <p className="text-ink/40 text-xs mt-0.5">
+                          on {product ? product.title : `Product #${rev.product_id}`}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-ink/70 text-sm mb-3">{rev.review}</p>
+                    <div className="flex gap-1.5">
+                      {!rev.is_approved ? (
+                        <button
+                          onClick={() => handleApproveReview(rev.id)}
+                          className="px-3 py-1.5 rounded-full text-xs font-semibold bg-basil/15 text-basil hover:bg-basil/25 transition-colors"
+                        >
+                          Approve
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleRejectReview(rev.id)}
+                          className="px-3 py-1.5 rounded-full text-xs font-semibold bg-cream text-ink/60 hover:bg-turmeric/20 transition-colors"
+                        >
+                          Unapprove
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDeleteReview(rev.id)}
+                        className="px-3 py-1.5 rounded-full text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         ) : (
           <>
             {/* Stats */}
@@ -365,9 +660,14 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
                   <div className="flex gap-2 pt-1">
                     <button
                       type="submit"
-                      className="flex-1 bg-chili hover:bg-chili-dark transition-colors text-white font-semibold py-2.5 rounded-full text-sm"
+                      disabled={submitting}
+                      className="flex-1 bg-chili hover:bg-chili-dark disabled:opacity-60 transition-colors text-white font-semibold py-2.5 rounded-full text-sm"
                     >
-                      {editingId ? "Update Product" : "Add Product"}
+                      {submitting
+                        ? "Saving..."
+                        : editingId
+                          ? "Update Product"
+                          : "Add Product"}
                     </button>
                     {editingId && (
                       <button
@@ -422,8 +722,8 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
                       <div
                         key={product.id}
                         className={`bg-white rounded-2xl border shadow-sm p-3 sm:p-4 flex gap-3 sm:gap-4 items-center transition-all ${editingId === product.id
-                            ? "border-chili ring-2 ring-chili/20"
-                            : "border-ink/5"
+                          ? "border-chili ring-2 ring-chili/20"
+                          : "border-ink/5"
                           }`}
                       >
                         <img

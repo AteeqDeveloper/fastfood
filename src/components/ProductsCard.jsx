@@ -1,8 +1,4 @@
-import { countReviews } from "../data/product-rating";
-
 function ProductCard({ product, quantity, onAdd, onIncrement, onDecrement, onOpenDetails }) {
-  const reviewCount = countReviews(product.id);
-
   return (
     <div
       onClick={onOpenDetails}
@@ -36,10 +32,6 @@ function ProductCard({ product, quantity, onAdd, onIncrement, onDecrement, onOpe
 
         <p className="text-ink/60 text-sm mt-1.5 line-clamp-2">
           {product.description}
-        </p>
-
-        <p className="text-ink/40 text-xs mt-2">
-          {reviewCount} {reviewCount === 1 ? "review" : "reviews"}
         </p>
 
         <div className="flex justify-between items-center mt-4">

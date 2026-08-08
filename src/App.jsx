@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { products as initialProducts } from "./data/products";
+import { supabaseClient } from "./lib/supabaseClient";
 import Header from "./components/Header";
 import HomePage from "./components/HomePage";
 import CollectionPage from "./components/CollectionPage";
@@ -7,21 +7,7 @@ import CartDrawer from "./components/CartDrawer";
 import ProductDetailModal from "./components/ProductDetailModal";
 import AdminDashboard from "./components/AdminDashboard";
 
-const STORAGE_KEY = "crispybites_products";
 const CART_STORAGE_KEY = "crispybites_cart";
-
-function loadProducts() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch {
-    /* ignore */
-  }
-  return initialProducts;
-}
 
 function loadCart() {
   try {
@@ -38,7 +24,9 @@ function loadCart() {
 
 function App() {
   const [page, setPage] = useState("home"); // "home" | "collection" | "admin"
-  const [products, setProducts] = useState(loadProducts);
+  const [products, setProducts] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState("");
 
   const [category, setCategory] = useState("All");
   const [rating, setRating] = useState(0);
@@ -49,16 +37,32 @@ function App() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
+  const [placingOrder, setPlacingOrder] = useState(false);
 
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
 
-  // Persist products
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
-  }, [products]);
+  // Load products from Supabase
+  const fetchProducts = async () => {
+    setProductsLoading(true);
+    const { data, error } = await supabaseClient
+      .from("products")
+      .select("*")
+      .order("id", { ascending: true });
+    if (error) {
+      setProductsError(error.message);
+    } else {
+      setProductsError("");
+      setProducts(data || []);
+    }
+    setProductsLoading(false);
+  };
 
-  // Persist cart
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  // Persist cart locally (cart is per-browser, not per-account)
   useEffect(() => {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
   }, [cart]);
@@ -118,7 +122,33 @@ function App() {
     setSearch("");
   };
 
-  const handlePlaceOrder = () => {
+  // Checkout -> writes a row into Supabase `orders`
+  const handlePlaceOrder = async (formData) => {
+    const total = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
+    const newOrder = {
+      id: `SB-${Date.now().toString().slice(-6)}`,
+      customer: formData?.name?.trim() || "Guest",
+      phone: formData?.phone || "",
+      address: formData?.address || "",
+      items: cartItems.map((item) => ({
+        id: item.id,
+        title: item.title,
+        price: item.price,
+        qty: item.qty,
+      })),
+      total,
+      status: "Preparing",
+    };
+
+    setPlacingOrder(true);
+    const { error } = await supabase.from("orders").insert(newOrder);
+    setPlacingOrder(false);
+
+    if (error) {
+      alert("Could not place order: " + error.message);
+      return;
+    }
+
     setOrderPlaced(true);
     setTimeout(() => {
       setOrderPlaced(false);
@@ -139,19 +169,40 @@ function App() {
     setPage("collection");
   };
 
-  // Admin CRUD
-  const handleAddProduct = (payload) => {
-    const maxId = products.reduce((m, p) => Math.max(m, p.id), 0);
-    setProducts((prev) => [...prev, { id: maxId + 1, ...payload }]);
+  // Admin CRUD — all backed by Supabase, local `products` state kept in sync
+  const handleAddProduct = async (payload) => {
+    const { data, error } = await supabase
+      .from("products")
+      .insert(payload)
+      .select()
+      .single();
+    if (error) {
+      alert("Could not add product: " + error.message);
+      return;
+    }
+    setProducts((prev) => [...prev, data]);
   };
 
-  const handleUpdateProduct = (id, payload) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...payload } : p))
-    );
+  const handleUpdateProduct = async (id, payload) => {
+    const { data, error } = await supabase
+      .from("products")
+      .update(payload)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) {
+      alert("Could not update product: " + error.message);
+      return;
+    }
+    setProducts((prev) => prev.map((p) => (p.id === id ? data : p)));
   };
 
-  const handleDeleteProduct = (id) => {
+  const handleDeleteProduct = async (id) => {
+    const { error } = await supabase.from("products").delete().eq("id", id);
+    if (error) {
+      alert("Could not delete product: " + error.message);
+      return;
+    }
     setProducts((prev) => prev.filter((p) => p.id !== id));
     setCart((prev) => {
       const next = { ...prev };
@@ -189,7 +240,7 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [detailModalOpen, cartOpen, mobileFiltersOpen]);
 
-  // Full-page admin
+  // Full-page admin (auth-gated inside AdminDashboard)
   if (page === "admin") {
     return (
       <AdminDashboard
@@ -214,7 +265,17 @@ function App() {
         onNavigate={setPage}
       />
 
-      {page === "home" ? (
+      {productsError && (
+        <div className="bg-red-50 text-red-600 text-sm font-medium text-center py-2 px-4">
+          Could not load menu: {productsError}
+        </div>
+      )}
+
+      {productsLoading ? (
+        <div className="flex items-center justify-center py-32">
+          <p className="text-ink/40 text-sm font-medium">Loading menu…</p>
+        </div>
+      ) : page === "home" ? (
         <HomePage
           topProducts={topProducts}
           categories={categories}
@@ -257,6 +318,7 @@ function App() {
         onDecrement={(id) => updateQty(id, -1)}
         onPlaceOrder={handlePlaceOrder}
         placed={orderPlaced}
+        placing={placingOrder}
       />
 
       <ProductDetailModal
