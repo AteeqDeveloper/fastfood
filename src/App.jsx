@@ -6,6 +6,7 @@ import CollectionPage from "./components/CollectionPage";
 import CartDrawer from "./components/CartDrawer";
 import ProductDetailModal from "./components/ProductDetailModal";
 import AdminDashboard from "./components/AdminDashboard";
+import TrackOrderPage from "./components/TrackOrderPage";
 
 const CART_STORAGE_KEY = "crispybites_cart";
 
@@ -23,7 +24,7 @@ function loadCart() {
 }
 
 function App() {
-  const [page, setPage] = useState("home"); // "home" | "collection" | "admin"
+  const [page, setPage] = useState("home"); // "home" | "collection" | "track" | "admin"
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState("");
@@ -141,7 +142,7 @@ function App() {
     };
 
     setPlacingOrder(true);
-    const { error } = await supabase.from("orders").insert(newOrder);
+    const { error } = await supabaseClient.from("orders").insert(newOrder);
     setPlacingOrder(false);
 
     if (error) {
@@ -171,7 +172,7 @@ function App() {
 
   // Admin CRUD — all backed by Supabase, local `products` state kept in sync
   const handleAddProduct = async (payload) => {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from("products")
       .insert(payload)
       .select()
@@ -184,7 +185,7 @@ function App() {
   };
 
   const handleUpdateProduct = async (id, payload) => {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from("products")
       .update(payload)
       .eq("id", id)
@@ -198,7 +199,7 @@ function App() {
   };
 
   const handleDeleteProduct = async (id) => {
-    const { error } = await supabase.from("products").delete().eq("id", id);
+    const { error } = await supabaseClient.from("products").delete().eq("id", id);
     if (error) {
       alert("Could not delete product: " + error.message);
       return;
@@ -265,13 +266,15 @@ function App() {
         onNavigate={setPage}
       />
 
-      {productsError && (
+      {productsError && page !== "track" && (
         <div className="bg-red-50 text-red-600 text-sm font-medium text-center py-2 px-4">
           Could not load menu: {productsError}
         </div>
       )}
 
-      {productsLoading ? (
+      {page === "track" ? (
+        <TrackOrderPage />
+      ) : productsLoading ? (
         <div className="flex items-center justify-center py-32">
           <p className="text-ink/40 text-sm font-medium">Loading menu…</p>
         </div>

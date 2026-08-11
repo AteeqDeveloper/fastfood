@@ -18,7 +18,7 @@ function ProductDetailModal({ product, isOpen, onClose, quantity, onIncrement, o
         setSubmitted(false);
         setReviewForm({ username: "", review: "", rating: "5" });
 
-        supabase
+        supabaseClient
             .from("reviews")
             .select("*")
             .eq("product_id", product.id)
