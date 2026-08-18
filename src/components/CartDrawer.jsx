@@ -1,5 +1,9 @@
 import { useState, useEffect } from "react";
 
+// TODO: replace with your real WhatsApp business number, country code first,
+// no "+", no spaces — e.g. Pakistan number 03001234567 becomes "923001234567"
+const WHATSAPP_NUMBER = "923701650540";
+
 function CartDrawer({
   isOpen,
   onClose,
@@ -9,12 +13,16 @@ function CartDrawer({
   onPlaceOrder,
   placed,
   placing = false,
+  orderId,
+  onTrackOrder,
+  onCloseConfirmation,
 }) {
   const total = items.reduce((sum, item) => sum + item.price * item.qty, 0);
 
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", phone: "", address: "" });
   const [errors, setErrors] = useState({});
+  const [copied, setCopied] = useState(false);
 
   // Reset checkout form whenever the drawer closes
   useEffect(() => {
@@ -22,6 +30,7 @@ function CartDrawer({
       setShowForm(false);
       setFormData({ name: "", phone: "", address: "" });
       setErrors({});
+      setCopied(false);
     }
   }, [isOpen]);
 
@@ -54,10 +63,45 @@ function CartDrawer({
     onPlaceOrder(formData);
   };
 
+  const buildWhatsAppMessage = () => {
+    const lines = [
+      "Hi CrispyBites! I'd like to place an order:",
+      "",
+      ...items.map((item) => `• ${item.title} x${item.qty} — Rs. ${item.price * item.qty}`),
+      "",
+      `Total: Rs. ${total}`,
+      "",
+      `Name: ${formData.name.trim() || "Guest"}`,
+      `Phone: ${formData.phone.trim()}`,
+      `Address: ${formData.address.trim()}`,
+    ];
+    return lines.join("\n");
+  };
+
+  const handleWhatsAppOrder = () => {
+    if (!validate()) return;
+    const message = buildWhatsAppMessage();
+    window.open(
+      `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`,
+      "_blank"
+    );
+  };
+
+  const handleCopyOrderId = async () => {
+    if (!orderId) return;
+    try {
+      await navigator.clipboard.writeText(orderId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* clipboard not available — ignore */
+    }
+  };
+
   return (
     <>
       {isOpen && (
-        <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
+        <div className="fixed inset-0 bg-black/40 z-40" onClick={placed ? undefined : onClose} />
       )}
 
       <aside
@@ -66,17 +110,66 @@ function CartDrawer({
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-ink/10">
           <h2 className="font-display font-bold text-xl text-ink">
-            {showForm ? "Delivery Details" : "Your Order"}
+            {placed ? "Order Confirmed" : showForm ? "Delivery Details" : "Your Order"}
           </h2>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-cream flex items-center justify-center text-ink"
-          >
-            ✕
-          </button>
+          {!placed && (
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-cream flex items-center justify-center text-ink"
+            >
+              ✕
+            </button>
+          )}
         </div>
 
-        {!showForm ? (
+        {placed ? (
+          <>
+            {/* ORDER CONFIRMATION VIEW */}
+            <div className="flex-1 overflow-y-auto scroll-thin px-5 py-8 flex flex-col items-center text-center">
+              <div className="stamp bg-basil/10 w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-4">
+                ✓
+              </div>
+              <h3 className="font-display font-bold text-xl text-ink mb-1">
+                Your order is on its way to the kitchen!
+              </h3>
+              <p className="text-ink/60 text-sm mb-6 max-w-xs">
+                Save your order ID below to track its status anytime.
+              </p>
+
+              <div className="w-full bg-cream rounded-2xl p-4 mb-6">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-ink/40 mb-1">
+                  Order ID
+                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-display font-extrabold text-lg text-chili">
+                    {orderId}
+                  </span>
+                  <button
+                    onClick={handleCopyOrderId}
+                    className="shrink-0 bg-white border border-ink/10 text-ink/70 text-xs font-semibold px-3 py-1.5 rounded-full hover:border-chili hover:text-chili transition-colors"
+                  >
+                    {copied ? "Copied ✓" : "Copy"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2.5 w-full">
+                <button
+                  onClick={onTrackOrder}
+                  className="w-full bg-chili hover:bg-chili-dark transition-colors text-white font-semibold py-3 rounded-full text-sm"
+                >
+                  Track this order
+                </button>
+                <button
+                  onClick={onCloseConfirmation}
+                  className="w-full text-ink/60 hover:text-ink font-semibold py-2.5 rounded-full text-sm transition-colors"
+                >
+                  Continue shopping
+                </button>
+              </div>
+            </div>
+          </>
+        ) : !showForm ? (
           <>
             {/* CART VIEW */}
             <div className="flex-1 overflow-y-auto scroll-thin px-5 py-4">
@@ -212,10 +305,17 @@ function CartDrawer({
               </div>
               <button
                 onClick={handleConfirm}
-                disabled={placed || placing}
+                disabled={placing}
                 className="w-full bg-chili hover:bg-chili-dark disabled:opacity-70 transition-colors text-white font-semibold py-3 rounded-full"
               >
-                {placed ? "Order Placed ✓" : placing ? "Placing Order..." : "Confirm Order"}
+                {placing ? "Placing Order..." : "Confirm Order"}
+              </button>
+              <button
+                onClick={handleWhatsAppOrder}
+                disabled={placing}
+                className="w-full mt-2 bg-white border border-basil text-basil hover:bg-basil/5 disabled:opacity-70 transition-colors font-semibold py-3 rounded-full flex items-center justify-center gap-2"
+              >
+                <span>🟢</span> Order via WhatsApp instead
               </button>
             </div>
           </>

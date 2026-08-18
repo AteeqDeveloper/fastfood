@@ -39,6 +39,8 @@ function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
+  const [lastOrder, setLastOrder] = useState(null); // { id, phone } of the most recently placed order
+  const [trackPrefillPhone, setTrackPrefillPhone] = useState("");
 
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -150,12 +152,24 @@ function App() {
       return;
     }
 
+    setLastOrder({ id: newOrder.id, phone: newOrder.phone });
     setOrderPlaced(true);
-    setTimeout(() => {
-      setOrderPlaced(false);
-      setCart({});
-      setCartOpen(false);
-    }, 1400);
+    setCart({});
+  };
+
+  // Called from the cart drawer's confirmation screen
+  const handleCloseOrderConfirmation = () => {
+    setOrderPlaced(false);
+    setLastOrder(null);
+    setCartOpen(false);
+  };
+
+  const handleTrackLastOrder = () => {
+    setTrackPrefillPhone(lastOrder?.phone || "");
+    setOrderPlaced(false);
+    setLastOrder(null);
+    setCartOpen(false);
+    setPage("track");
   };
 
   const openProductDetails = (product) => {
@@ -273,7 +287,7 @@ function App() {
       )}
 
       {page === "track" ? (
-        <TrackOrderPage />
+        <TrackOrderPage initialPhone={trackPrefillPhone} />
       ) : productsLoading ? (
         <div className="flex items-center justify-center py-32">
           <p className="text-ink/40 text-sm font-medium">Loading menu…</p>
@@ -322,6 +336,9 @@ function App() {
         onPlaceOrder={handlePlaceOrder}
         placed={orderPlaced}
         placing={placingOrder}
+        orderId={lastOrder?.id}
+        onTrackOrder={handleTrackLastOrder}
+        onCloseConfirmation={handleCloseOrderConfirmation}
       />
 
       <ProductDetailModal

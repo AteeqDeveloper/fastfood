@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabaseClient } from "../lib/supabaseClient";
 
 const STEPS = ["Preparing", "Out for delivery", "Delivered"];
@@ -56,16 +56,15 @@ function OrderProgress({ status }) {
     );
 }
 
-function TrackOrderPage() {
-    const [phone, setPhone] = useState("");
+function TrackOrderPage({ initialPhone = "" }) {
+    const [phone, setPhone] = useState(initialPhone);
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [searched, setSearched] = useState(false);
 
-    const handleSearch = async (e) => {
-        e.preventDefault();
-        const trimmed = phone.trim();
+    const runSearch = useCallback(async (rawPhone) => {
+        const trimmed = rawPhone.trim();
         if (!trimmed) return;
 
         setLoading(true);
@@ -86,6 +85,20 @@ function TrackOrderPage() {
             return;
         }
         setOrders(data || []);
+    }, []);
+
+    // Auto-run search when arriving here with a phone number already known
+    // (e.g. "Track this order" straight after checkout).
+    useEffect(() => {
+        if (initialPhone.trim()) {
+            runSearch(initialPhone);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialPhone]);
+
+    const handleSearch = (e) => {
+        e.preventDefault();
+        runSearch(phone);
     };
 
     return (
