@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 
 // TODO: replace with your real WhatsApp business number, country code first,
 // no "+", no spaces — e.g. Pakistan number 03001234567 becomes "923001234567"
-const WHATSAPP_NUMBER = "923701650540";
+const WHATSAPP_NUMBER = "923001234567";
 
 function CartDrawer({
   isOpen,
@@ -16,6 +16,8 @@ function CartDrawer({
   orderId,
   onTrackOrder,
   onCloseConfirmation,
+  drinkProducts = [],
+  onAddItem,
 }) {
   const total = items.reduce((sum, item) => sum + item.price * item.qty, 0);
 
@@ -216,6 +218,38 @@ function CartDrawer({
                   ))}
                 </div>
               )}
+
+              {/* Drink upsell — only shown when the cart has no drink yet */}
+              {items.length > 0 &&
+                drinkProducts.length > 0 &&
+                !items.some((i) => i.category === "Drinks") && (
+                  <div className="mt-5 bg-cream/60 border border-ink/10 rounded-2xl p-3">
+                    <p className="text-xs font-semibold text-ink/70 mb-2">
+                      🥤 Thirsty? Add a drink
+                    </p>
+                    <div className="flex gap-2 overflow-x-auto scroll-thin pb-1">
+                      {drinkProducts.map((drink) => (
+                        <button
+                          key={drink.id}
+                          onClick={() => onAddItem(drink.id)}
+                          className="shrink-0 flex items-center gap-2 bg-white border border-ink/10 rounded-full pl-1 pr-3 py-1 hover:border-chili transition-colors"
+                        >
+                          <img
+                            src={drink.image}
+                            alt={drink.title}
+                            className="w-7 h-7 rounded-full object-cover shrink-0"
+                          />
+                          <span className="text-xs font-semibold text-ink whitespace-nowrap">
+                            {drink.title}
+                          </span>
+                          <span className="text-xs text-chili font-bold whitespace-nowrap">
+                            +Rs. {drink.price}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
             </div>
 
             {items.length > 0 && (

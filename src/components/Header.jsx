@@ -36,8 +36,8 @@ function Header({
           <button
             onClick={() => onNavigate("home")}
             className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${page === "home"
-              ? "bg-chili text-white"
-              : "text-cream/70 hover:text-cream"
+                ? "bg-chili text-white"
+                : "text-cream/70 hover:text-cream"
               }`}
           >
             Home
@@ -45,8 +45,8 @@ function Header({
           <button
             onClick={() => onNavigate("collection")}
             className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${page === "collection"
-              ? "bg-chili text-white"
-              : "text-cream/70 hover:text-cream"
+                ? "bg-chili text-white"
+                : "text-cream/70 hover:text-cream"
               }`}
           >
             Menu
@@ -54,18 +54,11 @@ function Header({
           <button
             onClick={() => onNavigate("track")}
             className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${page === "track"
-              ? "bg-chili text-white"
-              : "text-cream/70 hover:text-cream"
+                ? "bg-chili text-white"
+                : "text-cream/70 hover:text-cream"
               }`}
           >
             Track Order
-          </button>
-          <button
-            onClick={() => onNavigate("admin")}
-            className="px-3 py-1.5 rounded-full text-sm font-semibold text-cream/70 hover:text-cream transition-colors"
-            aria-label="Admin Dashboard"
-          >
-            ⚙ Admin
           </button>
         </nav>
 
@@ -105,8 +98,8 @@ function Header({
         <button
           onClick={() => onNavigate("home")}
           className={`shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-colors ${page === "home"
-            ? "bg-chili text-white"
-            : "bg-charcoal-light text-cream/70"
+              ? "bg-chili text-white"
+              : "bg-charcoal-light text-cream/70"
             }`}
         >
           Home
@@ -114,8 +107,8 @@ function Header({
         <button
           onClick={() => onNavigate("collection")}
           className={`shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-colors ${page === "collection"
-            ? "bg-chili text-white"
-            : "bg-charcoal-light text-cream/70"
+              ? "bg-chili text-white"
+              : "bg-charcoal-light text-cream/70"
             }`}
         >
           Menu
@@ -123,17 +116,11 @@ function Header({
         <button
           onClick={() => onNavigate("track")}
           className={`shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-colors ${page === "track"
-            ? "bg-chili text-white"
-            : "bg-charcoal-light text-cream/70"
+              ? "bg-chili text-white"
+              : "bg-charcoal-light text-cream/70"
             }`}
         >
           Track Order
-        </button>
-        <button
-          onClick={() => onNavigate("admin")}
-          className="shrink-0 px-3 py-1 rounded-full text-xs font-semibold bg-charcoal-light text-cream/70"
-        >
-          ⚙ Admin
         </button>
       </nav>
     </header>

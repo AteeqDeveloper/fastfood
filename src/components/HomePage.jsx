@@ -1,6 +1,8 @@
 import ProductCard from "./ProductsCard";
 import Carousel from "./Carousel";
+import DealsSection from "./DealsSection";
 import useReveal from "../hooks/useReveal";
+import { deals } from "../data/deals";
 
 function HomePage({
     topProducts,
@@ -32,6 +34,7 @@ function HomePage({
     ];
 
     const [picksRef, picksVisible] = useReveal();
+    const [dealsRef, dealsVisible] = useReveal();
     const [stepsRef, stepsVisible] = useReveal();
 
     return (
@@ -143,6 +146,20 @@ function HomePage({
                     ))}
                 </div>
             </section>
+
+            {/* TODAY'S DEALS — combo bundles, priced better than ordering separately */}
+            <div
+                ref={dealsRef}
+                className={`reveal ${dealsVisible ? "reveal-visible" : ""}`}
+            >
+                <DealsSection
+                    deals={deals}
+                    cart={cart}
+                    onAdd={onAdd}
+                    onIncrement={onIncrement}
+                    onDecrement={onDecrement}
+                />
+            </div>
 
             {/* HOW IT WORKS */}
             <section

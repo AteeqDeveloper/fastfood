@@ -2,6 +2,15 @@ import { useState, useMemo, useEffect } from "react";
 import { supabaseClient } from "../lib/supabaseClient";
 import AdminAnalytics from "./AdminAnalytics";
 import AdminLogin from "./AdminLogin";
+import {
+  ShoppingBag,
+  Clock,
+  Truck,
+  CheckCircle2,
+  XCircle,
+  MessageSquareText,
+  Star,
+} from "lucide-react";
 
 const CATEGORIES = ["Burger", "Shawarma", "Pizza", "Sides", "Drinks"];
 
@@ -22,6 +31,27 @@ const orderStatusStyles = {
   Delivered: "bg-basil/15 text-basil",
   Cancelled: "bg-red-100 text-red-600",
 };
+
+const ORDER_STATUS_ICONS = {
+  Preparing: Clock,
+  "Out for delivery": Truck,
+  Delivered: CheckCircle2,
+  Cancelled: XCircle,
+};
+
+function StarRow({ rating }) {
+  const full = Math.round(Number(rating));
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Star
+          key={n}
+          className={`w-3 h-3 ${n <= full ? "fill-turmeric text-turmeric" : "fill-transparent text-ink/15"}`}
+        />
+      ))}
+    </span>
+  );
+}
 
 function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
   // ---- Auth ----
@@ -58,6 +88,8 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
   // ---- Orders ----
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [orderStatusFilter, setOrderStatusFilter] = useState("All");
+  const [orderSearch, setOrderSearch] = useState("");
 
   const fetchOrders = async () => {
     setOrdersLoading(true);
@@ -78,6 +110,7 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
   // ---- Reviews ----
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewFilter, setReviewFilter] = useState("All"); // "All" | "Pending" | "Approved"
 
   const fetchReviews = async () => {
     setReviewsLoading(true);
@@ -143,6 +176,45 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
   }, [products]);
 
   const pendingReviewsCount = reviews.filter((r) => !r.is_approved).length;
+
+  // ---- Orders: stats, filtering, search ----
+  const orderStats = useMemo(() => {
+    const counts = { Preparing: 0, "Out for delivery": 0, Delivered: 0, Cancelled: 0 };
+    let revenue = 0;
+    orders.forEach((o) => {
+      if (counts[o.status] !== undefined) counts[o.status] += 1;
+      if (o.status !== "Cancelled") revenue += Number(o.total || 0);
+    });
+    return { total: orders.length, counts, revenue };
+  }, [orders]);
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter((o) => {
+      const statusMatch = orderStatusFilter === "All" || o.status === orderStatusFilter;
+      const q = orderSearch.trim().toLowerCase();
+      const searchMatch =
+        !q ||
+        o.id?.toLowerCase().includes(q) ||
+        o.customer?.toLowerCase().includes(q) ||
+        o.phone?.toLowerCase().includes(q);
+      return statusMatch && searchMatch;
+    });
+  }, [orders, orderStatusFilter, orderSearch]);
+
+  // ---- Reviews: stats, filtering ----
+  const reviewStats = useMemo(() => {
+    const approved = reviews.filter((r) => r.is_approved);
+    const avgRating = approved.length
+      ? (approved.reduce((s, r) => s + Number(r.rating), 0) / approved.length).toFixed(1)
+      : "0.0";
+    return { total: reviews.length, pending: pendingReviewsCount, approved: approved.length, avgRating };
+  }, [reviews, pendingReviewsCount]);
+
+  const filteredReviews = useMemo(() => {
+    if (reviewFilter === "Pending") return reviews.filter((r) => !r.is_approved);
+    if (reviewFilter === "Approved") return reviews.filter((r) => r.is_approved);
+    return reviews;
+  }, [reviews, reviewFilter]);
 
   const handleChange = (field) => (e) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
@@ -345,9 +417,73 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {tab === "analytics" ? (
-          <AdminAnalytics products={products} />
+          <AdminAnalytics products={products} orders={orders} />
         ) : tab === "orders" ? (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-5">
+            {/* Stat cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5">
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="w-4 h-4 text-ink/40" />
+                  <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
+                    Total
+                  </p>
+                </div>
+                <p className="font-display font-extrabold text-2xl text-ink mt-1">
+                  {orderStats.total}
+                </p>
+              </div>
+              {ORDER_STATUSES.map((status) => {
+                const Icon = ORDER_STATUS_ICONS[status];
+                return (
+                  <div
+                    key={status}
+                    className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon className="w-4 h-4 text-ink/40" />
+                      <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide truncate">
+                        {status}
+                      </p>
+                    </div>
+                    <p className="font-display font-extrabold text-2xl text-ink mt-1">
+                      {orderStats.counts[status]}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Filters */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40 text-sm">
+                  🔍
+                </span>
+                <input
+                  type="text"
+                  value={orderSearch}
+                  onChange={(e) => setOrderSearch(e.target.value)}
+                  placeholder="Search by order ID, customer, or phone..."
+                  className="w-full bg-white border border-ink/10 rounded-full pl-9 pr-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 focus:ring-chili"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 overflow-x-auto">
+                {["All", ...ORDER_STATUSES].map((status) => (
+                  <button
+                    key={status}
+                    onClick={() => setOrderStatusFilter(status)}
+                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-colors ${orderStatusFilter === status
+                      ? "bg-chili border-chili text-white"
+                      : "bg-white border-ink/10 text-ink/60 hover:border-chili/40"
+                      }`}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {ordersLoading ? (
               <p className="text-ink/40 text-sm text-center py-12">Loading orders…</p>
             ) : orders.length === 0 ? (
@@ -357,8 +493,13 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
                   No orders yet. They'll show up here as soon as a customer checks out.
                 </p>
               </div>
+            ) : filteredOrders.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-ink/5 p-12 text-center">
+                <p className="text-3xl mb-2">🔍</p>
+                <p className="text-ink/60 text-sm">No orders match your filters.</p>
+              </div>
             ) : (
-              orders.map((order) => (
+              filteredOrders.map((order) => (
                 <div
                   key={order.id}
                   className="bg-white rounded-2xl border border-ink/5 shadow-sm p-4 sm:p-5"
@@ -428,7 +569,63 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
             )}
           </div>
         ) : tab === "reviews" ? (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-5">
+            {/* Stat cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5">
+                <div className="flex items-center gap-2">
+                  <MessageSquareText className="w-4 h-4 text-ink/40" />
+                  <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
+                    Total
+                  </p>
+                </div>
+                <p className="font-display font-extrabold text-2xl text-ink mt-1">
+                  {reviewStats.total}
+                </p>
+              </div>
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5">
+                <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
+                  Pending
+                </p>
+                <p className="font-display font-extrabold text-2xl text-turmeric mt-1">
+                  {reviewStats.pending}
+                </p>
+              </div>
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5">
+                <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
+                  Approved
+                </p>
+                <p className="font-display font-extrabold text-2xl text-basil mt-1">
+                  {reviewStats.approved}
+                </p>
+              </div>
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5">
+                <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
+                  Avg. Rating
+                </p>
+                <p className="font-display font-extrabold text-2xl text-chili mt-1">
+                  {reviewStats.avgRating}
+                </p>
+              </div>
+            </div>
+
+            {/* Filter tabs */}
+            <div className="flex items-center gap-1.5">
+              {["All", "Pending", "Approved"].map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setReviewFilter(f)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-colors ${reviewFilter === f
+                    ? "bg-chili border-chili text-white"
+                    : "bg-white border-ink/10 text-ink/60 hover:border-chili/40"
+                    }`}
+                >
+                  {f}
+                  {f === "Pending" && reviewStats.pending > 0 && ` (${reviewStats.pending})`}
+                </button>
+              ))}
+            </div>
+
             {reviewsLoading ? (
               <p className="text-ink/40 text-sm text-center py-12">Loading reviews…</p>
             ) : reviews.length === 0 ? (
@@ -436,8 +633,13 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
                 <p className="text-3xl mb-2">💬</p>
                 <p className="text-ink/60 text-sm">No reviews yet.</p>
               </div>
+            ) : filteredReviews.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-ink/5 p-12 text-center">
+                <p className="text-3xl mb-2">🔍</p>
+                <p className="text-ink/60 text-sm">No reviews match this filter.</p>
+              </div>
             ) : (
-              reviews.map((rev) => {
+              filteredReviews.map((rev) => {
                 const product = products.find((p) => p.id === rev.product_id);
                 return (
                   <div
@@ -451,8 +653,9 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
                           <span className="font-semibold text-sm text-ink">
                             {rev.username}
                           </span>
+                          <StarRow rating={rev.rating} />
                           <span className="text-turmeric text-xs font-semibold">
-                            ★ {rev.rating}
+                            {rev.rating}
                           </span>
                           <span
                             className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${rev.is_approved

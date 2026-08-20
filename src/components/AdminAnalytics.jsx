@@ -18,24 +18,18 @@ import {
     Tooltip,
     ResponsiveContainer,
     CartesianGrid,
+    Cell,
 } from "recharts";
-import { DollarSign, ShoppingBag, Star, Package } from "lucide-react";
-import { countReviews } from "../data/product-rating";
+import { DollarSign, ShoppingBag, Star, Receipt } from "lucide-react";
 
-// Sample sales trend — no live order history exists yet in this app, so this
-// stays illustrative until real orders are tracked. Everything else below
-// (ratings, categories, top dishes) is computed from your actual product data.
-const sampleRevenueByDay = [
-    { day: "Mon", revenue: 68400 },
-    { day: "Tue", revenue: 71200 },
-    { day: "Wed", revenue: 64800 },
-    { day: "Thu", revenue: 79600 },
-    { day: "Fri", revenue: 96200 },
-    { day: "Sat", revenue: 112400 },
-    { day: "Sun", revenue: 98900 },
-];
+const ranges = ["7 Days", "30 Days", "All Time"];
 
-const ranges = ["Today", "7 Days", "30 Days"];
+const STATUS_COLORS = {
+    Preparing: "#f2a93b",
+    "Out for delivery": "#3b82f6",
+    Delivered: "#4c9a63",
+    Cancelled: "#ef4444",
+};
 
 function KpiCard({ icon: Icon, label, value, sub }) {
     return (
@@ -56,19 +50,43 @@ function KpiCard({ icon: Icon, label, value, sub }) {
     );
 }
 
-function AdminAnalytics({ products }) {
+function rangeToDays(range) {
+    if (range === "7 Days") return 7;
+    if (range === "30 Days") return 30;
+    return null; // All Time
+}
+
+function AdminAnalytics({ products, orders = [] }) {
     const [range, setRange] = useState("7 Days");
+
+    const days = rangeToDays(range);
+
+    const rangeOrders = useMemo(() => {
+        if (!days) return orders;
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - days);
+        return orders.filter((o) => new Date(o.created_at) >= cutoff);
+    }, [orders, days]);
+
+    const completedOrders = useMemo(
+        () => rangeOrders.filter((o) => o.status !== "Cancelled"),
+        [rangeOrders]
+    );
+
+    const totalRevenue = useMemo(
+        () => completedOrders.reduce((s, o) => s + Number(o.total || 0), 0),
+        [completedOrders]
+    );
+
+    const avgOrderValue = completedOrders.length
+        ? Math.round(totalRevenue / completedOrders.length)
+        : 0;
 
     const avgRating = useMemo(() => {
         if (products.length === 0) return "0.0";
         return (
             products.reduce((s, p) => s + Number(p.rating), 0) / products.length
         ).toFixed(1);
-    }, [products]);
-
-    const avgPrice = useMemo(() => {
-        if (products.length === 0) return 0;
-        return Math.round(products.reduce((s, p) => s + p.price, 0) / products.length);
     }, [products]);
 
     const categoryPerformance = useMemo(() => {
@@ -79,14 +97,64 @@ function AdminAnalytics({ products }) {
         return Object.entries(byCat).map(([category, count]) => ({ category, count }));
     }, [products]);
 
-    const topDishes = useMemo(() => {
-        return [...products]
-            .sort((a, b) => Number(b.rating) - Number(a.rating))
-            .slice(0, 5)
-            .map((p) => ({ ...p, reviews: countReviews(p.id) }));
-    }, [products]);
+    // Revenue trend built from real orders, bucketed by calendar day
+    const revenueByDay = useMemo(() => {
+        const bucketDays = days || 14; // "All Time" still shows a readable trailing window
+        const buckets = [];
+        for (let i = bucketDays - 1; i >= 0; i--) {
+            const d = new Date();
+            d.setHours(0, 0, 0, 0);
+            d.setDate(d.getDate() - i);
+            buckets.push({
+                key: d.toDateString(),
+                day: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+                revenue: 0,
+                orders: 0,
+            });
+        }
+        const byKey = Object.fromEntries(buckets.map((b) => [b.key, b]));
+        rangeOrders.forEach((o) => {
+            if (o.status === "Cancelled") return;
+            const key = new Date(o.created_at).toDateString();
+            if (byKey[key]) {
+                byKey[key].revenue += Number(o.total || 0);
+                byKey[key].orders += 1;
+            }
+        });
+        return buckets;
+    }, [rangeOrders, days]);
 
-    const totalRevenue = sampleRevenueByDay.reduce((s, d) => s + d.revenue, 0);
+    // Status breakdown across the selected range
+    const statusBreakdown = useMemo(() => {
+        const counts = { Preparing: 0, "Out for delivery": 0, Delivered: 0, Cancelled: 0 };
+        rangeOrders.forEach((o) => {
+            if (counts[o.status] !== undefined) counts[o.status] += 1;
+        });
+        return Object.entries(counts).map(([status, count]) => ({ status, count }));
+    }, [rangeOrders]);
+
+    // Top dishes by real order volume (falls back to menu ratings if no orders yet)
+    const topDishesByOrders = useMemo(() => {
+        const tally = {};
+        rangeOrders.forEach((o) => {
+            if (o.status === "Cancelled") return;
+            (o.items || []).forEach((item) => {
+                if (!tally[item.title]) {
+                    tally[item.title] = { title: item.title, qty: 0, revenue: 0 };
+                }
+                tally[item.title].qty += item.qty;
+                tally[item.title].revenue += item.price * item.qty;
+            });
+        });
+        return Object.values(tally)
+            .sort((a, b) => b.qty - a.qty)
+            .slice(0, 5);
+    }, [rangeOrders]);
+
+    const hasOrderData = rangeOrders.length > 0;
+    const topRatedFallback = [...products]
+        .sort((a, b) => Number(b.rating) - Number(a.rating))
+        .slice(0, 5);
 
     return (
         <div className="flex flex-col gap-6">
@@ -107,40 +175,42 @@ function AdminAnalytics({ products }) {
                 </div>
             </div>
 
-            {/* KPI row — ratings and pricing are real, revenue is sample */}
+            {/* KPI row — all computed from real orders + real menu data */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <KpiCard
-                    icon={Package}
-                    label="Total Products"
-                    value={products.length}
-                    sub="Live from your menu"
-                />
-                <KpiCard
-                    icon={Star}
-                    label="Avg. Rating"
-                    value={avgRating}
-                    sub="Live from your menu"
-                />
-                <KpiCard
                     icon={DollarSign}
-                    label="Avg. Price"
-                    value={`Rs. ${avgPrice}`}
-                    sub="Live from your menu"
+                    label="Revenue"
+                    value={`Rs. ${totalRevenue.toLocaleString()}`}
+                    sub={`${range} · excludes cancelled orders`}
                 />
                 <KpiCard
                     icon={ShoppingBag}
-                    label="Sample Revenue"
-                    value={`Rs. ${totalRevenue.toLocaleString()}`}
-                    sub="Sample data — no order history yet"
+                    label="Orders"
+                    value={rangeOrders.length}
+                    sub={`${range} · live from your orders`}
+                />
+                <KpiCard
+                    icon={Receipt}
+                    label="Avg. Order Value"
+                    value={`Rs. ${avgOrderValue}`}
+                    sub="Live from your orders"
+                />
+                <KpiCard
+                    icon={Star}
+                    label="Avg. Menu Rating"
+                    value={avgRating}
+                    sub="Live from your menu"
                 />
             </div>
 
-            {/* Revenue chart (sample) */}
+            {/* Revenue chart — real orders */}
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <div>
                         <CardTitle className="text-base">Revenue trend</CardTitle>
-                        <CardDescription>Sample data, current week</CardDescription>
+                        <CardDescription>
+                            {hasOrderData ? "From your real orders" : "No orders in this range yet"}
+                        </CardDescription>
                     </div>
                     <Badge variant="secondary" className="bg-chili/10 text-chili">
                         {range}
@@ -149,7 +219,7 @@ function AdminAnalytics({ products }) {
                 <CardContent>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={sampleRevenueByDay} margin={{ left: -20, right: 10 }}>
+                            <AreaChart data={revenueByDay} margin={{ left: -20, right: 10 }}>
                                 <defs>
                                     <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="0%" stopColor="#e4572e" stopOpacity={0.35} />
@@ -161,16 +231,21 @@ function AdminAnalytics({ products }) {
                                     dataKey="day"
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{ fontSize: 12, fill: "#a3a3a3" }}
+                                    tick={{ fontSize: 11, fill: "#a3a3a3" }}
+                                    interval="preserveStartEnd"
                                 />
                                 <YAxis
                                     axisLine={false}
                                     tickLine={false}
                                     tick={{ fontSize: 12, fill: "#a3a3a3" }}
-                                    tickFormatter={(v) => `${v / 1000}k`}
+                                    tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)}
                                 />
                                 <Tooltip
-                                    formatter={(value) => [`Rs. ${value.toLocaleString()}`, "Revenue"]}
+                                    formatter={(value, name) =>
+                                        name === "revenue"
+                                            ? [`Rs. ${value.toLocaleString()}`, "Revenue"]
+                                            : [value, "Orders"]
+                                    }
                                     contentStyle={{ borderRadius: 8, border: "1px solid #e5e5e5", fontSize: 12 }}
                                 />
                                 <Area type="monotone" dataKey="revenue" stroke="#e4572e" strokeWidth={2} fill="url(#rev)" />
@@ -181,18 +256,43 @@ function AdminAnalytics({ products }) {
             </Card>
 
             <div className="grid lg:grid-cols-5 gap-6">
-                {/* Top dishes — real product data */}
+                {/* Top dishes — by real order volume, falls back to menu ratings */}
                 <Card className="lg:col-span-3">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-base">Top rated dishes</CardTitle>
-                        <CardDescription>From your current menu</CardDescription>
+                        <CardTitle className="text-base">
+                            {hasOrderData ? "Best selling dishes" : "Top rated dishes"}
+                        </CardTitle>
+                        <CardDescription>
+                            {hasOrderData
+                                ? "Ranked by units ordered"
+                                : "No orders yet — showing top rated menu items"}
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {topDishes.length === 0 ? (
+                        {hasOrderData && topDishesByOrders.length > 0 ? (
+                            <div className="flex flex-col divide-y divide-ink/5">
+                                {topDishesByOrders.map((dish, i) => (
+                                    <div key={dish.title} className="flex items-center gap-3 py-3">
+                                        <span className="w-6 text-sm font-semibold text-ink/30">
+                                            {String(i + 1).padStart(2, "0")}
+                                        </span>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-semibold text-ink truncate">{dish.title}</p>
+                                            <p className="text-xs text-ink/40 mt-0.5">{dish.qty} sold</p>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                            <p className="text-sm font-bold text-ink">
+                                                Rs. {dish.revenue.toLocaleString()}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : topRatedFallback.length === 0 ? (
                             <p className="text-sm text-ink/40 py-6 text-center">No products yet.</p>
                         ) : (
                             <div className="flex flex-col divide-y divide-ink/5">
-                                {topDishes.map((dish, i) => (
+                                {topRatedFallback.map((dish, i) => (
                                     <div key={dish.id} className="flex items-center gap-3 py-3">
                                         <span className="w-6 text-sm font-semibold text-ink/30">
                                             {String(i + 1).padStart(2, "0")}
@@ -211,7 +311,6 @@ function AdminAnalytics({ products }) {
                                         </div>
                                         <div className="text-right shrink-0">
                                             <p className="text-sm font-bold text-ink">Rs. {dish.price}</p>
-                                            <p className="text-xs text-ink/40">{dish.reviews} reviews</p>
                                         </div>
                                     </div>
                                 ))}
@@ -220,33 +319,70 @@ function AdminAnalytics({ products }) {
                     </CardContent>
                 </Card>
 
-                {/* Category breakdown — real product data */}
+                {/* Order status breakdown — real orders */}
                 <Card className="lg:col-span-2">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-base">Menu by category</CardTitle>
-                        <CardDescription>Number of dishes per category</CardDescription>
+                        <CardTitle className="text-base">Orders by status</CardTitle>
+                        <CardDescription>{range}</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="h-48">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={categoryPerformance} layout="vertical" margin={{ left: 10 }}>
-                                    <XAxis type="number" hide allowDecimals={false} />
-                                    <YAxis
-                                        type="category"
-                                        dataKey="category"
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fontSize: 12, fill: "#525252" }}
-                                        width={70}
-                                    />
-                                    <Tooltip cursor={{ fill: "#fafafa" }} contentStyle={{ borderRadius: 8, fontSize: 12 }} />
-                                    <Bar dataKey="count" fill="#e4572e" radius={[0, 6, 6, 0]} barSize={18} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
+                        {hasOrderData ? (
+                            <div className="h-48">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={statusBreakdown} layout="vertical" margin={{ left: 10 }}>
+                                        <XAxis type="number" hide allowDecimals={false} />
+                                        <YAxis
+                                            type="category"
+                                            dataKey="status"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fontSize: 11, fill: "#525252" }}
+                                            width={90}
+                                        />
+                                        <Tooltip cursor={{ fill: "#fafafa" }} contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                                        <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={16}>
+                                            {statusBreakdown.map((entry) => (
+                                                <Cell key={entry.status} fill={STATUS_COLORS[entry.status]} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-ink/40 py-10 text-center">
+                                No orders in this range yet.
+                            </p>
+                        )}
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Menu by category — always from real menu data */}
+            <Card>
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Menu by category</CardTitle>
+                    <CardDescription>Number of dishes per category</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="h-40">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={categoryPerformance} layout="vertical" margin={{ left: 10 }}>
+                                <XAxis type="number" hide allowDecimals={false} />
+                                <YAxis
+                                    type="category"
+                                    dataKey="category"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fontSize: 12, fill: "#525252" }}
+                                    width={70}
+                                />
+                                <Tooltip cursor={{ fill: "#fafafa" }} contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                                <Bar dataKey="count" fill="#e4572e" radius={[0, 6, 6, 0]} barSize={18} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }

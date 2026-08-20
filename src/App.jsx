@@ -7,8 +7,18 @@ import CartDrawer from "./components/CartDrawer";
 import ProductDetailModal from "./components/ProductDetailModal";
 import AdminDashboard from "./components/AdminDashboard";
 import TrackOrderPage from "./components/TrackOrderPage";
+import { deals } from "./data/deals";
 
 const CART_STORAGE_KEY = "crispybites_cart";
+
+// Admin is reached only via the hidden "#admin" URL hash — there's no visible
+// nav link to it. Visit yoursite.com/#admin to get to the dashboard.
+function getInitialPage() {
+  if (typeof window !== "undefined" && window.location.hash === "#admin") {
+    return "admin";
+  }
+  return "home";
+}
 
 function loadCart() {
   try {
@@ -24,7 +34,7 @@ function loadCart() {
 }
 
 function App() {
-  const [page, setPage] = useState("home"); // "home" | "collection" | "track" | "admin"
+  const [page, setPage] = useState(getInitialPage); // "home" | "collection" | "track" | "admin"
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState("");
@@ -65,6 +75,16 @@ function App() {
     fetchProducts();
   }, []);
 
+  // Hidden admin route: reacts if someone types "#admin" into the URL bar
+  // while the app is already open (no reload needed).
+  useEffect(() => {
+    const handleHashChange = () => {
+      if (window.location.hash === "#admin") setPage("admin");
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
   // Persist cart locally (cart is per-browser, not per-account)
   useEffect(() => {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
@@ -99,14 +119,23 @@ function App() {
 
   const cartCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
 
+  // Deals are virtual products (fixed combo IDs 9000+) merged in here so the
+  // existing cart/checkout/order code works for them with no special-casing.
+  const cartLookupProducts = useMemo(() => [...products, ...deals], [products]);
+
   const cartItems = Object.entries(cart)
     .filter(([, qty]) => qty > 0)
     .map(([id, qty]) => {
-      const product = products.find((p) => p.id === Number(id));
+      const product = cartLookupProducts.find((p) => p.id === Number(id));
       if (!product) return null;
       return { ...product, qty };
     })
     .filter(Boolean);
+
+  const drinkProducts = useMemo(
+    () => products.filter((p) => p.category === "Drinks"),
+    [products]
+  );
 
   const updateQty = (id, delta) => {
     setCart((prev) => {
@@ -255,7 +284,7 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [detailModalOpen, cartOpen, mobileFiltersOpen]);
 
-  // Full-page admin (auth-gated inside AdminDashboard)
+  // Full-page admin (auth-gated inside AdminDashboard, reached only via #admin)
   if (page === "admin") {
     return (
       <AdminDashboard
@@ -263,7 +292,10 @@ function App() {
         onAdd={handleAddProduct}
         onUpdate={handleUpdateProduct}
         onDelete={handleDeleteProduct}
-        onBack={() => setPage("home")}
+        onBack={() => {
+          window.location.hash = "";
+          setPage("home");
+        }}
       />
     );
   }
@@ -339,6 +371,8 @@ function App() {
         orderId={lastOrder?.id}
         onTrackOrder={handleTrackLastOrder}
         onCloseConfirmation={handleCloseOrderConfirmation}
+        drinkProducts={drinkProducts}
+        onAddItem={(id) => updateQty(id, 1)}
       />
 
       <ProductDetailModal
