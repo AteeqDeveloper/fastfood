@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { supabaseClient } from "../lib/supabaseClient";
 import AdminAnalytics from "./AdminAnalytics";
 import AdminLogin from "./AdminLogin";
+import AdminPOS from "./AdminPOS";
 import {
   ShoppingBag,
   Clock,
@@ -10,6 +11,9 @@ import {
   XCircle,
   MessageSquareText,
   Star,
+  Zap,
+  Printer,
+  Receipt,
 } from "lucide-react";
 
 const CATEGORIES = ["Burger", "Shawarma", "Pizza", "Sides", "Drinks"];
@@ -59,14 +63,45 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
   const [sessionChecked, setSessionChecked] = useState(false);
 
   useEffect(() => {
-    supabaseClient.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setSessionChecked(true);
-    });
-    const { data: listener } = supabaseClient.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-    });
-    return () => listener.subscription.unsubscribe();
+    let isMounted = true;
+    
+    // Safety fallback: if Supabase takes more than 3s, proceed to login screen
+    const timeout = setTimeout(() => {
+      if (isMounted) setSessionChecked(true);
+    }, 3000);
+
+    supabaseClient.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (isMounted) {
+          clearTimeout(timeout);
+          setSession(data?.session || null);
+          setSessionChecked(true);
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          clearTimeout(timeout);
+          console.warn("Session check failed, defaulting to login", err);
+          setSession(null);
+          setSessionChecked(true);
+        }
+      });
+
+    const { data: listener } = supabaseClient.auth.onAuthStateChange(
+      (_event, newSession) => {
+        if (isMounted) {
+          setSession(newSession);
+          setSessionChecked(true);
+        }
+      }
+    );
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timeout);
+      listener?.subscription?.unsubscribe?.();
+    };
   }, []);
 
   const handleSignOut = async () => {
@@ -74,7 +109,7 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
   };
 
   // ---- Tabs ----
-  const [tab, setTab] = useState("products"); // "products" | "orders" | "reviews" | "analytics"
+  const [tab, setTab] = useState("pos"); // "pos" | "products" | "orders" | "reviews" | "analytics"
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState("");
@@ -340,23 +375,34 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
           <div className="flex items-center gap-2">
             <div className="hidden sm:flex items-center gap-1 bg-charcoal-light rounded-full p-1">
               <button
+                onClick={() => setTab("pos")}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  tab === "pos" ? "bg-turmeric text-charcoal shadow-sm" : "text-cream/80 hover:text-cream"
+                }`}
+              >
+                <span>⚡</span> POS &amp; Billing
+              </button>
+              <button
                 onClick={() => setTab("products")}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${tab === "products" ? "bg-chili text-white" : "text-cream/60 hover:text-cream"
-                  }`}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                  tab === "products" ? "bg-chili text-white" : "text-cream/60 hover:text-cream"
+                }`}
               >
                 Products
               </button>
               <button
                 onClick={() => setTab("orders")}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${tab === "orders" ? "bg-chili text-white" : "text-cream/60 hover:text-cream"
-                  }`}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                  tab === "orders" ? "bg-chili text-white" : "text-cream/60 hover:text-cream"
+                }`}
               >
                 Orders
               </button>
               <button
                 onClick={() => setTab("reviews")}
-                className={`relative px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${tab === "reviews" ? "bg-chili text-white" : "text-cream/60 hover:text-cream"
-                  }`}
+                className={`relative px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                  tab === "reviews" ? "bg-chili text-white" : "text-cream/60 hover:text-cream"
+                }`}
               >
                 Reviews
                 {pendingReviewsCount > 0 && (
@@ -367,8 +413,9 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
               </button>
               <button
                 onClick={() => setTab("analytics")}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${tab === "analytics" ? "bg-chili text-white" : "text-cream/60 hover:text-cream"
-                  }`}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                  tab === "analytics" ? "bg-chili text-white" : "text-cream/60 hover:text-cream"
+                }`}
               >
                 Analytics
               </button>
@@ -385,30 +432,42 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
         {/* Tab switcher - mobile */}
         <div className="sm:hidden flex items-center gap-2 px-4 pb-3 -mt-1 overflow-x-auto">
           <button
+            onClick={() => setTab("pos")}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+              tab === "pos" ? "bg-turmeric text-charcoal" : "bg-charcoal-light text-cream/70"
+            }`}
+          >
+            ⚡ POS &amp; Billing
+          </button>
+          <button
             onClick={() => setTab("products")}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${tab === "products" ? "bg-chili text-white" : "bg-charcoal-light text-cream/60"
-              }`}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+              tab === "products" ? "bg-chili text-white" : "bg-charcoal-light text-cream/60"
+            }`}
           >
             Products
           </button>
           <button
             onClick={() => setTab("orders")}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${tab === "orders" ? "bg-chili text-white" : "bg-charcoal-light text-cream/60"
-              }`}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+              tab === "orders" ? "bg-chili text-white" : "bg-charcoal-light text-cream/60"
+            }`}
           >
             Orders
           </button>
           <button
             onClick={() => setTab("reviews")}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${tab === "reviews" ? "bg-chili text-white" : "bg-charcoal-light text-cream/60"
-              }`}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+              tab === "reviews" ? "bg-chili text-white" : "bg-charcoal-light text-cream/60"
+            }`}
           >
             Reviews {pendingReviewsCount > 0 && `(${pendingReviewsCount})`}
           </button>
           <button
             onClick={() => setTab("analytics")}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${tab === "analytics" ? "bg-chili text-white" : "bg-charcoal-light text-cream/60"
-              }`}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+              tab === "analytics" ? "bg-chili text-white" : "bg-charcoal-light text-cream/60"
+            }`}
           >
             Analytics
           </button>
@@ -416,7 +475,13 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
       </header>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {tab === "analytics" ? (
+        {tab === "pos" ? (
+          <AdminPOS
+            products={products}
+            session={session}
+            onOrderCompleted={fetchOrders}
+          />
+        ) : tab === "analytics" ? (
           <AdminAnalytics products={products} orders={orders} />
         ) : tab === "orders" ? (
           <div className="flex flex-col gap-5">

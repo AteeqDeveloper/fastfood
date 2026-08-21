@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { supabaseClient } from "./lib/supabaseClient";
+import { CartProvider } from "./context/CartContext";
 import Header from "./components/Header";
 import HomePage from "./components/HomePage";
 import CollectionPage from "./components/CollectionPage";
@@ -7,30 +8,127 @@ import CartDrawer from "./components/CartDrawer";
 import ProductDetailModal from "./components/ProductDetailModal";
 import AdminDashboard from "./components/AdminDashboard";
 import TrackOrderPage from "./components/TrackOrderPage";
-import { deals } from "./data/deals";
+import DrinkPromptModal from "./components/DrinkPromptModal";
+import Footer from "./components/Footer";
 
-const CART_STORAGE_KEY = "crispybites_cart";
-
-// Admin is reached only via the hidden "#admin" URL hash — there's no visible
-// nav link to it. Visit yoursite.com/#admin to get to the dashboard.
 function getInitialPage() {
-  if (typeof window !== "undefined" && window.location.hash === "#admin") {
-    return "admin";
+  if (typeof window !== "undefined") {
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    if (path === "/admin" || path === "/admin/" || hash === "#admin" || hash === "#/admin") {
+      return "admin";
+    }
   }
   return "home";
 }
 
-function loadCart() {
-  try {
-    const raw = localStorage.getItem(CART_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object") return parsed;
-    }
-  } catch {
-    /* ignore */
-  }
-  return {};
+function Storefront({
+  page,
+  setPage,
+  products,
+  productsLoading,
+  productsError,
+  category,
+  setCategory,
+  rating,
+  setRating,
+  priceRange,
+  setPriceRange,
+  search,
+  setSearch,
+  sortBy,
+  setSortBy,
+  filteredProducts,
+  categories,
+  topProducts,
+  mobileFiltersOpen,
+  setMobileFiltersOpen,
+  cartOpen,
+  setCartOpen,
+  selectedProduct,
+  detailModalOpen,
+  setDetailModalOpen,
+  openProductDetails,
+  resetFilters,
+  trackPrefillPhone,
+  setTrackPrefillPhone,
+}) {
+  return (
+    <div className="min-h-screen bg-cream flex flex-col justify-between">
+      <div>
+        <Header
+          search={search}
+          setSearch={setSearch}
+          onCartClick={() => setCartOpen(true)}
+          onFiltersClick={() => setMobileFiltersOpen(true)}
+          page={page}
+          onNavigate={setPage}
+        />
+
+        {productsError && page !== "track" && (
+          <div className="bg-red-50 text-red-600 text-sm font-medium text-center py-2 px-4">
+            Could not load menu: {productsError}
+          </div>
+        )}
+
+        {page === "track" ? (
+          <TrackOrderPage initialPhone={trackPrefillPhone} />
+        ) : productsLoading ? (
+          <div className="flex items-center justify-center py-32">
+            <p className="text-ink/40 text-sm font-medium">Loading menu…</p>
+          </div>
+        ) : page === "home" ? (
+          <HomePage
+            topProducts={topProducts}
+            categories={categories}
+            onExplore={() => setPage("collection")}
+            onCategorySelect={(cat) => {
+              setCategory(cat);
+              setPage("collection");
+            }}
+            onOpenDetails={openProductDetails}
+          />
+        ) : (
+          <CollectionPage
+            categories={categories}
+            category={category}
+            setCategory={setCategory}
+            rating={rating}
+            setRating={setRating}
+            priceRange={priceRange}
+            setPriceRange={setPriceRange}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            filteredProducts={filteredProducts}
+            onOpenDetails={openProductDetails}
+            mobileFiltersOpen={mobileFiltersOpen}
+            onCloseMobileFilters={() => setMobileFiltersOpen(false)}
+            onResetFilters={resetFilters}
+          />
+        )}
+      </div>
+
+      <Footer onNavigate={setPage} />
+
+      <CartDrawer
+        isOpen={cartOpen}
+        onClose={() => setCartOpen(false)}
+        onTrackOrder={() => {
+          setCartOpen(false);
+          setPage("track");
+        }}
+        onCloseConfirmation={() => setCartOpen(false)}
+      />
+
+      <ProductDetailModal
+        isOpen={detailModalOpen}
+        onClose={() => setDetailModalOpen(false)}
+        product={selectedProduct}
+      />
+
+      <DrinkPromptModal />
+    </div>
+  );
 }
 
 function App() {
@@ -44,12 +142,8 @@ function App() {
   const [priceRange, setPriceRange] = useState(1500);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("default");
-  const [cart, setCart] = useState(loadCart);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
-  const [orderPlaced, setOrderPlaced] = useState(false);
-  const [placingOrder, setPlacingOrder] = useState(false);
-  const [lastOrder, setLastOrder] = useState(null); // { id, phone } of the most recently placed order
   const [trackPrefillPhone, setTrackPrefillPhone] = useState("");
 
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -75,20 +169,24 @@ function App() {
     fetchProducts();
   }, []);
 
-  // Hidden admin route: reacts if someone types "#admin" into the URL bar
-  // while the app is already open (no reload needed).
-  useEffect(() => {
-    const handleHashChange = () => {
-      if (window.location.hash === "#admin") setPage("admin");
-    };
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
-  }, []);
+  const handleNavigate = (newPage) => {
+    setPage(newPage);
+    if (typeof window !== "undefined") {
+      if (newPage === "admin") {
+        window.history.pushState({}, "", "/admin");
+      } else if (window.location.pathname === "/admin") {
+        window.history.pushState({}, "", "/");
+      }
+    }
+  };
 
-  // Persist cart locally (cart is per-browser, not per-account)
   useEffect(() => {
-    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
-  }, [cart]);
+    const handlePopState = () => {
+      setPage(getInitialPage());
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   const categories = ["All", ...new Set(products.map((p) => p.category))];
 
@@ -117,36 +215,6 @@ function App() {
     [products]
   );
 
-  const cartCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
-
-  // Deals are virtual products (fixed combo IDs 9000+) merged in here so the
-  // existing cart/checkout/order code works for them with no special-casing.
-  const cartLookupProducts = useMemo(() => [...products, ...deals], [products]);
-
-  const cartItems = Object.entries(cart)
-    .filter(([, qty]) => qty > 0)
-    .map(([id, qty]) => {
-      const product = cartLookupProducts.find((p) => p.id === Number(id));
-      if (!product) return null;
-      return { ...product, qty };
-    })
-    .filter(Boolean);
-
-  const drinkProducts = useMemo(
-    () => products.filter((p) => p.category === "Drinks"),
-    [products]
-  );
-
-  const updateQty = (id, delta) => {
-    setCart((prev) => {
-      const next = { ...prev };
-      const newQty = (next[id] || 0) + delta;
-      if (newQty <= 0) delete next[id];
-      else next[id] = newQty;
-      return next;
-    });
-  };
-
   const resetFilters = () => {
     setCategory("All");
     setRating(0);
@@ -154,66 +222,12 @@ function App() {
     setSearch("");
   };
 
-  // Checkout -> writes a row into Supabase `orders`
-  const handlePlaceOrder = async (formData) => {
-    const total = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
-    const newOrder = {
-      id: `SB-${Date.now().toString().slice(-6)}`,
-      customer: formData?.name?.trim() || "Guest",
-      phone: formData?.phone || "",
-      address: formData?.address || "",
-      items: cartItems.map((item) => ({
-        id: item.id,
-        title: item.title,
-        price: item.price,
-        qty: item.qty,
-      })),
-      total,
-      status: "Preparing",
-    };
-
-    setPlacingOrder(true);
-    const { error } = await supabaseClient.from("orders").insert(newOrder);
-    setPlacingOrder(false);
-
-    if (error) {
-      alert("Could not place order: " + error.message);
-      return;
-    }
-
-    setLastOrder({ id: newOrder.id, phone: newOrder.phone });
-    setOrderPlaced(true);
-    setCart({});
-  };
-
-  // Called from the cart drawer's confirmation screen
-  const handleCloseOrderConfirmation = () => {
-    setOrderPlaced(false);
-    setLastOrder(null);
-    setCartOpen(false);
-  };
-
-  const handleTrackLastOrder = () => {
-    setTrackPrefillPhone(lastOrder?.phone || "");
-    setOrderPlaced(false);
-    setLastOrder(null);
-    setCartOpen(false);
-    setPage("track");
-  };
-
   const openProductDetails = (product) => {
     setSelectedProduct(product);
     setDetailModalOpen(true);
   };
 
-  const goToCollection = () => setPage("collection");
-
-  const handleCategorySelect = (cat) => {
-    setCategory(cat);
-    setPage("collection");
-  };
-
-  // Admin CRUD — all backed by Supabase, local `products` state kept in sync
+  // Admin CRUD
   const handleAddProduct = async (payload) => {
     const { data, error } = await supabaseClient
       .from("products")
@@ -248,11 +262,6 @@ function App() {
       return;
     }
     setProducts((prev) => prev.filter((p) => p.id !== id));
-    setCart((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
   };
 
   useEffect(() => {
@@ -284,7 +293,7 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [detailModalOpen, cartOpen, mobileFiltersOpen]);
 
-  // Full-page admin (auth-gated inside AdminDashboard, reached only via #admin)
+  // Full-page admin
   if (page === "admin") {
     return (
       <AdminDashboard
@@ -293,7 +302,7 @@ function App() {
         onUpdate={handleUpdateProduct}
         onDelete={handleDeleteProduct}
         onBack={() => {
-          window.location.hash = "";
+          window.history.pushState({}, "", "/");
           setPage("home");
         }}
       />
@@ -301,90 +310,39 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-cream">
-      <Header
+    <CartProvider products={products}>
+      <Storefront
+        page={page}
+        setPage={handleNavigate}
+        products={products}
+        productsLoading={productsLoading}
+        productsError={productsError}
+        category={category}
+        setCategory={setCategory}
+        rating={rating}
+        setRating={setRating}
+        priceRange={priceRange}
+        setPriceRange={setPriceRange}
         search={search}
         setSearch={setSearch}
-        cartCount={cartCount}
-        onCartClick={() => setCartOpen(true)}
-        onFiltersClick={() => setMobileFiltersOpen(true)}
-        page={page}
-        onNavigate={setPage}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        filteredProducts={filteredProducts}
+        categories={categories}
+        topProducts={topProducts}
+        mobileFiltersOpen={mobileFiltersOpen}
+        setMobileFiltersOpen={setMobileFiltersOpen}
+        cartOpen={cartOpen}
+        setCartOpen={setCartOpen}
+        selectedProduct={selectedProduct}
+        detailModalOpen={detailModalOpen}
+        setDetailModalOpen={setDetailModalOpen}
+        openProductDetails={openProductDetails}
+        resetFilters={resetFilters}
+        trackPrefillPhone={trackPrefillPhone}
+        setTrackPrefillPhone={setTrackPrefillPhone}
       />
-
-      {productsError && page !== "track" && (
-        <div className="bg-red-50 text-red-600 text-sm font-medium text-center py-2 px-4">
-          Could not load menu: {productsError}
-        </div>
-      )}
-
-      {page === "track" ? (
-        <TrackOrderPage initialPhone={trackPrefillPhone} />
-      ) : productsLoading ? (
-        <div className="flex items-center justify-center py-32">
-          <p className="text-ink/40 text-sm font-medium">Loading menu…</p>
-        </div>
-      ) : page === "home" ? (
-        <HomePage
-          topProducts={topProducts}
-          categories={categories}
-          onExplore={goToCollection}
-          onCategorySelect={handleCategorySelect}
-          cart={cart}
-          onAdd={(id) => updateQty(id, 1)}
-          onIncrement={(id) => updateQty(id, 1)}
-          onDecrement={(id) => updateQty(id, -1)}
-          onOpenDetails={openProductDetails}
-        />
-      ) : (
-        <CollectionPage
-          categories={categories}
-          category={category}
-          setCategory={setCategory}
-          rating={rating}
-          setRating={setRating}
-          priceRange={priceRange}
-          setPriceRange={setPriceRange}
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-          filteredProducts={filteredProducts}
-          cart={cart}
-          onAdd={(id) => updateQty(id, 1)}
-          onIncrement={(id) => updateQty(id, 1)}
-          onDecrement={(id) => updateQty(id, -1)}
-          onOpenDetails={openProductDetails}
-          mobileFiltersOpen={mobileFiltersOpen}
-          onCloseMobileFilters={() => setMobileFiltersOpen(false)}
-          onResetFilters={resetFilters}
-        />
-      )}
-
-      <CartDrawer
-        isOpen={cartOpen}
-        onClose={() => setCartOpen(false)}
-        items={cartItems}
-        onIncrement={(id) => updateQty(id, 1)}
-        onDecrement={(id) => updateQty(id, -1)}
-        onPlaceOrder={handlePlaceOrder}
-        placed={orderPlaced}
-        placing={placingOrder}
-        orderId={lastOrder?.id}
-        onTrackOrder={handleTrackLastOrder}
-        onCloseConfirmation={handleCloseOrderConfirmation}
-        drinkProducts={drinkProducts}
-        onAddItem={(id) => updateQty(id, 1)}
-      />
-
-      <ProductDetailModal
-        isOpen={detailModalOpen}
-        onClose={() => setDetailModalOpen(false)}
-        product={selectedProduct}
-        quantity={selectedProduct ? cart[selectedProduct.id] || 0 : 0}
-        onAdd={() => updateQty(selectedProduct.id, 1)}
-        onIncrement={() => updateQty(selectedProduct.id, 1)}
-        onDecrement={() => updateQty(selectedProduct.id, -1)}
-      />
-    </div>
+    </CartProvider>
   );
 }
 

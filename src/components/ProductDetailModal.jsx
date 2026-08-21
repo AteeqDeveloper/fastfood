@@ -1,7 +1,12 @@
 import { useState, useEffect } from "react";
 import { supabaseClient } from "../lib/supabaseClient";
+import { useCart } from "../context/CartContext";
+import QuantityStepper from "./QuantityStepper";
 
-function ProductDetailModal({ product, isOpen, onClose, quantity, onIncrement, onDecrement, onAdd }) {
+function ProductDetailModal({ product, isOpen, onClose }) {
+    const { cart, handleAddToCart, updateQty } = useCart();
+    const quantity = product ? cart[product.id] || 0 : 0;
+
     const [reviews, setReviews] = useState([]);
     const [reviewsLoading, setReviewsLoading] = useState(false);
     const [showReviewForm, setShowReviewForm] = useState(false);
@@ -109,26 +114,16 @@ function ProductDetailModal({ product, isOpen, onClose, quantity, onIncrement, o
                             </span>
 
                             {quantity > 0 ? (
-                                <div className="flex items-center gap-1 bg-cream rounded-full px-1 py-1">
-                                    <button
-                                        onClick={onDecrement}
-                                        className="w-8 h-8 rounded-full bg-white text-ink font-bold flex items-center justify-center hover:bg-chili hover:text-white transition-colors"
-                                    >
-                                        −
-                                    </button>
-                                    <span className="w-8 text-center font-semibold text-sm text-ink">
-                                        {quantity}
-                                    </span>
-                                    <button
-                                        onClick={onIncrement}
-                                        className="w-8 h-8 rounded-full bg-white text-ink font-bold flex items-center justify-center hover:bg-chili hover:text-white transition-colors"
-                                    >
-                                        +
-                                    </button>
-                                </div>
+                                <QuantityStepper
+                                    quantity={quantity}
+                                    onIncrement={() => updateQty(product.id, 1)}
+                                    onDecrement={() => updateQty(product.id, -1)}
+                                    label={product.title}
+                                    size="md"
+                                />
                             ) : (
                                 <button
-                                    onClick={onAdd}
+                                    onClick={() => handleAddToCart(product.id)}
                                     className="bg-chili text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-chili-dark transition-colors shadow-sm"
                                 >
                                     Add to Cart

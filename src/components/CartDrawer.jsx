@@ -1,25 +1,28 @@
 import { useState, useEffect } from "react";
+import { useCart } from "../context/CartContext";
+import QuantityStepper from "./QuantityStepper";
 
-// TODO: replace with your real WhatsApp business number, country code first,
-// no "+", no spaces — e.g. Pakistan number 03001234567 becomes "923001234567"
+// Replace with your WhatsApp business number: Pakistan e.g. 923001234567
 const WHATSAPP_NUMBER = "923001234567";
 
 function CartDrawer({
   isOpen,
   onClose,
-  items,
-  onIncrement,
-  onDecrement,
-  onPlaceOrder,
-  placed,
-  placing = false,
-  orderId,
   onTrackOrder,
   onCloseConfirmation,
-  drinkProducts = [],
-  onAddItem,
 }) {
-  const total = items.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const {
+    cartItems,
+    updateQty,
+    handlePlaceOrder,
+    placingOrder,
+    orderPlaced,
+    lastOrder,
+    drinkProducts,
+    handleAddToCart,
+  } = useCart();
+
+  const total = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
 
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", phone: "", address: "" });
@@ -62,14 +65,14 @@ function CartDrawer({
 
   const handleConfirm = () => {
     if (!validate()) return;
-    onPlaceOrder(formData);
+    handlePlaceOrder(formData);
   };
 
   const buildWhatsAppMessage = () => {
     const lines = [
       "Hi CrispyBites! I'd like to place an order:",
       "",
-      ...items.map((item) => `• ${item.title} x${item.qty} — Rs. ${item.price * item.qty}`),
+      ...cartItems.map((item) => `• ${item.title} x${item.qty} — Rs. ${item.price * item.qty}`),
       "",
       `Total: Rs. ${total}`,
       "",
@@ -90,9 +93,9 @@ function CartDrawer({
   };
 
   const handleCopyOrderId = async () => {
-    if (!orderId) return;
+    if (!lastOrder?.id) return;
     try {
-      await navigator.clipboard.writeText(orderId);
+      await navigator.clipboard.writeText(lastOrder.id);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
@@ -103,18 +106,19 @@ function CartDrawer({
   return (
     <>
       {isOpen && (
-        <div className="fixed inset-0 bg-black/40 z-40" onClick={placed ? undefined : onClose} />
+        <div className="fixed inset-0 bg-black/40 z-40" onClick={orderPlaced ? undefined : onClose} />
       )}
 
       <aside
-        className={`fixed top-0 right-0 z-50 h-dvh w-full sm:w-96 bg-white flex flex-col transition-transform duration-300 ${isOpen ? "translate-x-0 animate-slide-in" : "translate-x-full"
-          }`}
+        className={`fixed top-0 right-0 z-50 h-dvh w-full sm:w-96 bg-white flex flex-col transition-transform duration-300 ${
+          isOpen ? "translate-x-0 animate-slide-in" : "translate-x-full"
+        }`}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-ink/10">
           <h2 className="font-display font-bold text-xl text-ink">
-            {placed ? "Order Confirmed" : showForm ? "Delivery Details" : "Your Order"}
+            {orderPlaced ? "Order Confirmed" : showForm ? "Delivery Details" : "Your Order"}
           </h2>
-          {!placed && (
+          {!orderPlaced && (
             <button
               onClick={onClose}
               className="w-8 h-8 rounded-full bg-cream flex items-center justify-center text-ink"
@@ -124,7 +128,7 @@ function CartDrawer({
           )}
         </div>
 
-        {placed ? (
+        {orderPlaced ? (
           <>
             {/* ORDER CONFIRMATION VIEW */}
             <div className="flex-1 overflow-y-auto scroll-thin px-5 py-8 flex flex-col items-center text-center">
@@ -144,7 +148,7 @@ function CartDrawer({
                 </p>
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-display font-extrabold text-lg text-chili">
-                    {orderId}
+                    {lastOrder?.id}
                   </span>
                   <button
                     onClick={handleCopyOrderId}
@@ -175,15 +179,15 @@ function CartDrawer({
           <>
             {/* CART VIEW */}
             <div className="flex-1 overflow-y-auto scroll-thin px-5 py-4">
-              {items.length === 0 ? (
+              {cartItems.length === 0 ? (
                 <div className="text-center py-16">
                   <p className="text-3xl mb-3">🛒</p>
                   <p className="text-ink/60 text-sm">Your cart is empty.</p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-4">
-                  {items.map((item) => (
-                    <div key={item.id} className="flex gap-3">
+                  {cartItems.map((item) => (
+                    <div key={item.id} className="flex gap-3 items-center">
                       <img
                         src={item.image}
                         alt={item.title}
@@ -196,33 +200,23 @@ function CartDrawer({
                         <p className="text-chili font-bold text-sm mt-0.5">
                           Rs. {item.price * item.qty}
                         </p>
-                        <div className="flex items-center gap-1 mt-1.5">
-                          <button
-                            onClick={() => onDecrement(item.id)}
-                            className="w-6 h-6 rounded-full bg-cream text-ink font-bold flex items-center justify-center hover:bg-chili hover:text-white transition-colors text-xs"
-                          >
-                            −
-                          </button>
-                          <span className="w-6 text-center text-sm font-semibold">
-                            {item.qty}
-                          </span>
-                          <button
-                            onClick={() => onIncrement(item.id)}
-                            className="w-6 h-6 rounded-full bg-cream text-ink font-bold flex items-center justify-center hover:bg-chili hover:text-white transition-colors text-xs"
-                          >
-                            +
-                          </button>
-                        </div>
                       </div>
+                      <QuantityStepper
+                        quantity={item.qty}
+                        onIncrement={() => updateQty(item.id, 1)}
+                        onDecrement={() => updateQty(item.id, -1)}
+                        label={item.title}
+                        size="sm"
+                      />
                     </div>
                   ))}
                 </div>
               )}
 
               {/* Drink upsell — only shown when the cart has no drink yet */}
-              {items.length > 0 &&
+              {cartItems.length > 0 &&
                 drinkProducts.length > 0 &&
-                !items.some((i) => i.category === "Drinks") && (
+                !cartItems.some((i) => i.category === "Drinks") && (
                   <div className="mt-5 bg-cream/60 border border-ink/10 rounded-2xl p-3">
                     <p className="text-xs font-semibold text-ink/70 mb-2">
                       🥤 Thirsty? Add a drink
@@ -231,7 +225,7 @@ function CartDrawer({
                       {drinkProducts.map((drink) => (
                         <button
                           key={drink.id}
-                          onClick={() => onAddItem(drink.id)}
+                          onClick={() => handleAddToCart(drink.id)}
                           className="shrink-0 flex items-center gap-2 bg-white border border-ink/10 rounded-full pl-1 pr-3 py-1 hover:border-chili transition-colors"
                         >
                           <img
@@ -252,7 +246,7 @@ function CartDrawer({
                 )}
             </div>
 
-            {items.length > 0 && (
+            {cartItems.length > 0 && (
               <div className="border-t border-ink/10 px-5 py-4">
                 <div className="flex justify-between items-center mb-3">
                   <span className="text-ink/60 text-sm font-medium">Total</span>
@@ -303,8 +297,9 @@ function CartDrawer({
                     value={formData.phone}
                     onChange={handleChange("phone")}
                     placeholder="03XX-XXXXXXX"
-                    className={`w-full bg-cream rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 ${errors.phone ? "ring-2 ring-chili" : "focus:ring-chili"
-                      }`}
+                    className={`w-full bg-cream rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 ${
+                      errors.phone ? "ring-2 ring-chili" : "focus:ring-chili"
+                    }`}
                   />
                   {errors.phone && (
                     <p className="text-chili text-xs font-medium mt-1">{errors.phone}</p>
@@ -320,8 +315,9 @@ function CartDrawer({
                     onChange={handleChange("address")}
                     placeholder="House #, street, area, city"
                     rows={3}
-                    className={`w-full bg-cream rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 resize-none ${errors.address ? "ring-2 ring-chili" : "focus:ring-chili"
-                      }`}
+                    className={`w-full bg-cream rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 resize-none ${
+                      errors.address ? "ring-2 ring-chili" : "focus:ring-chili"
+                    }`}
                   />
                   {errors.address && (
                     <p className="text-chili text-xs font-medium mt-1">{errors.address}</p>
@@ -339,14 +335,14 @@ function CartDrawer({
               </div>
               <button
                 onClick={handleConfirm}
-                disabled={placing}
+                disabled={placingOrder}
                 className="w-full bg-chili hover:bg-chili-dark disabled:opacity-70 transition-colors text-white font-semibold py-3 rounded-full"
               >
-                {placing ? "Placing Order..." : "Confirm Order"}
+                {placingOrder ? "Placing Order..." : "Confirm Order"}
               </button>
               <button
                 onClick={handleWhatsAppOrder}
-                disabled={placing}
+                disabled={placingOrder}
                 className="w-full mt-2 bg-white border border-basil text-basil hover:bg-basil/5 disabled:opacity-70 transition-colors font-semibold py-3 rounded-full flex items-center justify-center gap-2"
               >
                 <span>🟢</span> Order via WhatsApp instead
