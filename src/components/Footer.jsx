@@ -27,7 +27,6 @@ function Footer({ onNavigate }) {
                 { label: "Home", page: "home" },
                 { label: "Menu", page: "collection" },
                 { label: "Track Order", page: "track" },
-                { label: "Admin Portal 🔒", page: "admin" },
               ].map((link) => (
                 <button
                   key={link.page}

@@ -1,8 +1,13 @@
 import { useState, useMemo, useEffect } from "react";
 import { supabaseClient } from "../lib/supabaseClient";
+import AdminSidebar, { ADMIN_NAV_ITEMS } from "./AdminSidebar";
+import AdminOverview from "./AdminOverview";
 import AdminAnalytics from "./AdminAnalytics";
 import AdminLogin from "./AdminLogin";
 import AdminPOS from "./AdminPOS";
+import AdminUsers from "./AdminUsers";
+import AdminSettings from "./AdminSettings";
+import AdminProfile from "./AdminProfile";
 import {
   ShoppingBag,
   Clock,
@@ -12,8 +17,12 @@ import {
   MessageSquareText,
   Star,
   Zap,
-  Printer,
-  Receipt,
+  Menu,
+  ChevronRight,
+  ExternalLink,
+  Search,
+  Flame,
+  Plus,
 } from "lucide-react";
 
 const CATEGORIES = ["Burger", "Shawarma", "Pizza", "Sides", "Drinks"];
@@ -108,8 +117,27 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
     await supabaseClient.auth.signOut();
   };
 
-  // ---- Tabs ----
-  const [tab, setTab] = useState("pos"); // "pos" | "products" | "orders" | "reviews" | "analytics"
+  // ---- Navigation & Mobile Sidebar ----
+  const [tab, setTab] = useState("dashboard"); // "dashboard" | "pos" | "products" | "orders" | "analytics" | "reviews" | "users" | "settings" | "profile"
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setSidebarOpen(false);
+      }
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState("");
@@ -212,7 +240,6 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
 
   const pendingReviewsCount = reviews.filter((r) => !r.is_approved).length;
 
-  // ---- Orders: stats, filtering, search ----
   const orderStats = useMemo(() => {
     const counts = { Preparing: 0, "Out for delivery": 0, Delivered: 0, Cancelled: 0 };
     let revenue = 0;
@@ -222,6 +249,8 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
     });
     return { total: orders.length, counts, revenue };
   }, [orders]);
+
+  const activeOrdersCount = (orderStats.counts.Preparing || 0) + (orderStats.counts["Out for delivery"] || 0);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
@@ -236,7 +265,6 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
     });
   }, [orders, orderStatusFilter, orderSearch]);
 
-  // ---- Reviews: stats, filtering ----
   const reviewStats = useMemo(() => {
     const approved = reviews.filter((r) => r.is_approved);
     const avgRating = approved.length
@@ -325,11 +353,16 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
     showToast("Product deleted", "error");
   };
 
-  // ---- Auth gate ----
+  // ---- Current Tab Meta Information ----
+  const currentNavItem = useMemo(() => {
+    return ADMIN_NAV_ITEMS.find((item) => item.id === tab) || ADMIN_NAV_ITEMS[0];
+  }, [tab]);
+
+  // ---- Auth Gate ----
   if (!sessionChecked) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center">
-        <p className="text-ink/40 text-sm font-medium">Checking session…</p>
+        <p className="text-ink/40 text-sm font-medium animate-pulse">Checking session…</p>
       </div>
     );
   }
@@ -339,559 +372,633 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
   }
 
   return (
-    <div className="min-h-screen bg-cream">
-      {/* Toast */}
+    <div className="min-h-screen bg-cream/60 flex">
+      {/* Toast Notification */}
       {toast && (
         <div
-          className={`fixed top-4 right-4 z-[200] px-5 py-3 rounded-xl shadow-lg text-sm font-semibold animate-pop-in ${toast.type === "error"
-            ? "bg-red-500 text-white"
-            : "bg-basil text-white"
-            }`}
+          className={`fixed top-4 right-4 z-[200] px-5 py-3 rounded-xl shadow-xl text-sm font-semibold animate-pop-in ${
+            toast.type === "error" ? "bg-red-500 text-white" : "bg-basil text-white"
+          }`}
         >
           {toast.msg}
         </div>
       )}
 
-      {/* Header */}
-      <header className="sticky top-0 z-30 bg-charcoal text-cream">
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-4 sm:px-6 py-3">
-          <div className="flex items-center gap-3">
+      {/* Modern Fixed Left Sidebar Component */}
+      <AdminSidebar
+        currentTab={tab}
+        onSelectTab={setTab}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        session={session}
+        onSignOut={handleSignOut}
+        onBackToStorefront={onBack}
+        pendingReviewsCount={pendingReviewsCount}
+        activeOrdersCount={activeOrdersCount}
+      />
+
+      {/* Main Admin Content Area (Positioned cleanly right of the fixed sidebar on desktop) */}
+      <div className="flex-1 flex flex-col min-w-0 lg:pl-64 xl:pl-72 min-h-screen">
+        {/* Mobile / Tablet Top Header Bar (hidden on desktop lg:hidden) */}
+        <header className="lg:hidden sticky top-0 z-30 bg-charcoal text-cream border-b border-white/10 px-4 py-3 shadow-md flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="w-9 h-9 rounded-xl bg-charcoal-light border border-white/10 flex items-center justify-center text-cream hover:text-white active:scale-95 transition-all"
+              aria-label="Open sidebar navigation"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-chili to-turmeric flex items-center justify-center text-white shrink-0">
+                <Flame className="w-4 h-4 fill-white text-white" />
+              </div>
+              <h1 className="font-display font-black text-sm tracking-tight truncate">
+                Flame<span className="text-chili">Bite</span> <span className="text-cream/60 font-medium">/ {currentNavItem.label}</span>
+              </h1>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={onBack}
-              className="w-9 h-9 rounded-full bg-charcoal-light flex items-center justify-center hover:bg-chili transition-colors"
-              aria-label="Back"
+              className="px-2.5 py-1.5 rounded-lg bg-charcoal-light hover:bg-white/10 text-[11px] font-bold text-cream/80 border border-white/10 flex items-center gap-1"
+              title="Back to Customer Storefront"
             >
-              ←
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Storefront</span>
             </button>
-            <div>
-              <h1 className="font-display font-extrabold text-lg sm:text-xl tracking-tight">
-                Admin <span className="text-chili">Dashboard</span>
-              </h1>
-              <p className="text-cream/50 text-xs hidden sm:block">
-                {session.user?.email}
-              </p>
-            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="hidden sm:flex items-center gap-1 bg-charcoal-light rounded-full p-1">
-              <button
-                onClick={() => setTab("pos")}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  tab === "pos" ? "bg-turmeric text-charcoal shadow-sm" : "text-cream/80 hover:text-cream"
-                }`}
-              >
-                <span>⚡</span> POS &amp; Billing
-              </button>
-              <button
-                onClick={() => setTab("products")}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                  tab === "products" ? "bg-chili text-white" : "text-cream/60 hover:text-cream"
-                }`}
-              >
-                Products
-              </button>
-              <button
-                onClick={() => setTab("orders")}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                  tab === "orders" ? "bg-chili text-white" : "text-cream/60 hover:text-cream"
-                }`}
-              >
-                Orders
-              </button>
-              <button
-                onClick={() => setTab("reviews")}
-                className={`relative px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                  tab === "reviews" ? "bg-chili text-white" : "text-cream/60 hover:text-cream"
-                }`}
-              >
-                Reviews
-                {pendingReviewsCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-turmeric text-charcoal text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                    {pendingReviewsCount}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setTab("analytics")}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                  tab === "analytics" ? "bg-chili text-white" : "text-cream/60 hover:text-cream"
-                }`}
-              >
-                Analytics
-              </button>
+        </header>
+
+        {/* Desktop Top Sub-Header Breadcrumb Bar */}
+        <div className="hidden lg:flex items-center justify-between px-8 py-4 bg-white/60 backdrop-blur-md border-b border-ink/5 sticky top-0 z-20">
+          <div className="flex items-center gap-2 text-xs font-semibold text-ink/50">
+            <span>Admin</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+            <span className="text-ink font-bold text-sm">{currentNavItem.label}</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-cream border border-ink/5 text-xs font-medium text-ink/70">
+              <span className="w-2 h-2 rounded-full bg-basil animate-pulse" />
+              <span>Realtime Server Connected</span>
             </div>
+
             <button
-              onClick={handleSignOut}
-              className="text-xs font-semibold bg-charcoal-light hover:bg-chili text-cream/80 hover:text-white px-3 py-1.5 rounded-full transition-colors"
+              onClick={onBack}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-charcoal hover:bg-chili text-white text-xs font-bold transition-colors shadow-sm"
+              title="Return to Customer Storefront"
             >
-              Sign Out
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>View Storefront</span>
             </button>
           </div>
         </div>
 
-        {/* Tab switcher - mobile */}
-        <div className="sm:hidden flex items-center gap-2 px-4 pb-3 -mt-1 overflow-x-auto">
-          <button
-            onClick={() => setTab("pos")}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-              tab === "pos" ? "bg-turmeric text-charcoal" : "bg-charcoal-light text-cream/70"
-            }`}
-          >
-            ⚡ POS &amp; Billing
-          </button>
-          <button
-            onClick={() => setTab("products")}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-              tab === "products" ? "bg-chili text-white" : "bg-charcoal-light text-cream/60"
-            }`}
-          >
-            Products
-          </button>
-          <button
-            onClick={() => setTab("orders")}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-              tab === "orders" ? "bg-chili text-white" : "bg-charcoal-light text-cream/60"
-            }`}
-          >
-            Orders
-          </button>
-          <button
-            onClick={() => setTab("reviews")}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-              tab === "reviews" ? "bg-chili text-white" : "bg-charcoal-light text-cream/60"
-            }`}
-          >
-            Reviews {pendingReviewsCount > 0 && `(${pendingReviewsCount})`}
-          </button>
-          <button
-            onClick={() => setTab("analytics")}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-              tab === "analytics" ? "bg-chili text-white" : "bg-charcoal-light text-cream/60"
-            }`}
-          >
-            Analytics
-          </button>
-        </div>
-      </header>
+        {/* Dynamic Main Body Content */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          {tab === "dashboard" && (
+            <AdminOverview
+              products={products}
+              orders={orders}
+              reviews={reviews}
+              onNavigateTab={setTab}
+            />
+          )}
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {tab === "pos" ? (
-          <AdminPOS
-            products={products}
-            session={session}
-            onOrderCompleted={fetchOrders}
-          />
-        ) : tab === "analytics" ? (
-          <AdminAnalytics products={products} orders={orders} />
-        ) : tab === "orders" ? (
-          <div className="flex flex-col gap-5">
-            {/* Stat cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5">
-                <div className="flex items-center gap-2">
-                  <ShoppingBag className="w-4 h-4 text-ink/40" />
-                  <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
-                    Total
-                  </p>
-                </div>
-                <p className="font-display font-extrabold text-2xl text-ink mt-1">
-                  {orderStats.total}
-                </p>
-              </div>
-              {ORDER_STATUSES.map((status) => {
-                const Icon = ORDER_STATUS_ICONS[status];
-                return (
-                  <div
-                    key={status}
-                    className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Icon className="w-4 h-4 text-ink/40" />
-                      <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide truncate">
-                        {status}
-                      </p>
-                    </div>
-                    <p className="font-display font-extrabold text-2xl text-ink mt-1">
-                      {orderStats.counts[status]}
+          {tab === "pos" && (
+            <AdminPOS
+              products={products}
+              session={session}
+              onOrderCompleted={fetchOrders}
+            />
+          )}
+
+          {tab === "analytics" && (
+            <AdminAnalytics products={products} orders={orders} />
+          )}
+
+          {tab === "users" && (
+            <AdminUsers session={session} />
+          )}
+
+          {tab === "settings" && (
+            <AdminSettings />
+          )}
+
+          {tab === "profile" && (
+            <AdminProfile
+              session={session}
+              onSignOut={handleSignOut}
+              onBackToStorefront={onBack}
+            />
+          )}
+
+          {tab === "orders" && (
+            <div className="flex flex-col gap-5">
+              {/* Stat cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5">
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className="w-4 h-4 text-ink/40" />
+                    <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
+                      Total
                     </p>
                   </div>
-                );
-              })}
-            </div>
-
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40 text-sm">
-                  🔍
-                </span>
-                <input
-                  type="text"
-                  value={orderSearch}
-                  onChange={(e) => setOrderSearch(e.target.value)}
-                  placeholder="Search by order ID, customer, or phone..."
-                  className="w-full bg-white border border-ink/10 rounded-full pl-9 pr-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 focus:ring-chili"
-                />
+                  <p className="font-display font-extrabold text-2xl text-ink mt-1">
+                    {orderStats.total}
+                  </p>
+                </div>
+                {ORDER_STATUSES.map((status) => {
+                  const Icon = ORDER_STATUS_ICONS[status];
+                  return (
+                    <div
+                      key={status}
+                      className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-4 h-4 text-ink/40" />
+                        <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide truncate">
+                          {status}
+                        </p>
+                      </div>
+                      <p className="font-display font-extrabold text-2xl text-ink mt-1">
+                        {orderStats.counts[status]}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="flex items-center gap-1.5 overflow-x-auto">
-                {["All", ...ORDER_STATUSES].map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => setOrderStatusFilter(status)}
-                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-colors ${orderStatusFilter === status
-                      ? "bg-chili border-chili text-white"
-                      : "bg-white border-ink/10 text-ink/60 hover:border-chili/40"
+
+              {/* Filters */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40 text-sm">
+                    🔍
+                  </span>
+                  <input
+                    type="text"
+                    value={orderSearch}
+                    onChange={(e) => setOrderSearch(e.target.value)}
+                    placeholder="Search by order ID, customer, or phone..."
+                    className="w-full bg-white border border-ink/10 rounded-full pl-9 pr-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 focus:ring-chili"
+                  />
+                </div>
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                  {["All", ...ORDER_STATUSES].map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => setOrderStatusFilter(status)}
+                      className={`shrink-0 px-3.5 py-2 rounded-full text-xs font-semibold border-2 transition-colors ${
+                        orderStatusFilter === status
+                          ? "bg-chili border-chili text-white shadow-sm"
+                          : "bg-white border-ink/10 text-ink/60 hover:border-chili/40"
                       }`}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {ordersLoading ? (
+                <p className="text-ink/40 text-sm text-center py-12">Loading orders…</p>
+              ) : orders.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-ink/5 p-12 text-center">
+                  <p className="text-3xl mb-2">🧾</p>
+                  <p className="text-ink/60 text-sm">
+                    No orders yet. They'll show up here as soon as a customer checks out.
+                  </p>
+                </div>
+              ) : filteredOrders.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-ink/5 p-12 text-center">
+                  <p className="text-3xl mb-2">🔍</p>
+                  <p className="text-ink/60 text-sm">No orders match your filters.</p>
+                </div>
+              ) : (
+                filteredOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="bg-white rounded-2xl border border-ink/5 shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow"
                   >
-                    {status}
+                    <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-display font-bold text-sm sm:text-base text-ink">
+                            #{order.id.slice(0, 10)}
+                          </h3>
+                          <span
+                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                              orderStatusStyles[order.status] || "bg-cream text-ink/60"
+                            }`}
+                          >
+                            {order.status}
+                          </span>
+                        </div>
+                        <p className="text-ink/60 text-xs mt-1">
+                          {order.customer} · {order.phone || "no phone"}
+                        </p>
+                        {order.address && (
+                          <p className="text-ink/40 text-xs mt-0.5 max-w-md">
+                            {order.address}
+                          </p>
+                        )}
+                        <p className="text-ink/30 text-[10px] mt-1">
+                          {new Date(order.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-display font-extrabold text-lg text-chili">
+                          Rs. {order.total}
+                        </p>
+                        <p className="text-ink/40 text-xs">
+                          {order.items.reduce((s, i) => s + i.qty, 0)} items
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 text-xs text-ink/60 mb-3 border-t border-ink/5 pt-3">
+                      {order.items.map((item) => (
+                        <span
+                          key={item.id}
+                          className="bg-cream px-2.5 py-1 rounded-full"
+                        >
+                          {item.title} × {item.qty}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {ORDER_STATUSES.map((status) => (
+                        <button
+                          key={status}
+                          onClick={() => handleUpdateOrderStatus(order.id, status)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-colors ${
+                            order.status === status
+                              ? "bg-chili border-chili text-white"
+                              : "bg-transparent border-ink/15 text-ink/60 hover:border-chili/50"
+                          }`}
+                        >
+                          {status}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {tab === "reviews" && (
+            <div className="flex flex-col gap-5">
+              {/* Stat cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5">
+                  <div className="flex items-center gap-2">
+                    <MessageSquareText className="w-4 h-4 text-ink/40" />
+                    <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
+                      Total
+                    </p>
+                  </div>
+                  <p className="font-display font-extrabold text-2xl text-ink mt-1">
+                    {reviewStats.total}
+                  </p>
+                </div>
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5">
+                  <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
+                    Pending
+                  </p>
+                  <p className="font-display font-extrabold text-2xl text-turmeric mt-1">
+                    {reviewStats.pending}
+                  </p>
+                </div>
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5">
+                  <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
+                    Approved
+                  </p>
+                  <p className="font-display font-extrabold text-2xl text-basil mt-1">
+                    {reviewStats.approved}
+                  </p>
+                </div>
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5">
+                  <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
+                    Avg. Rating
+                  </p>
+                  <p className="font-display font-extrabold text-2xl text-chili mt-1">
+                    {reviewStats.avgRating}
+                  </p>
+                </div>
+              </div>
+
+              {/* Filter tabs */}
+              <div className="flex items-center gap-1.5">
+                {["All", "Pending", "Approved"].map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setReviewFilter(f)}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border-2 transition-colors ${
+                      reviewFilter === f
+                        ? "bg-chili border-chili text-white shadow-sm"
+                        : "bg-white border-ink/10 text-ink/60 hover:border-chili/40"
+                    }`}
+                  >
+                    {f}
+                    {f === "Pending" && reviewStats.pending > 0 && ` (${reviewStats.pending})`}
                   </button>
                 ))}
               </div>
-            </div>
 
-            {ordersLoading ? (
-              <p className="text-ink/40 text-sm text-center py-12">Loading orders…</p>
-            ) : orders.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-ink/5 p-12 text-center">
-                <p className="text-3xl mb-2">🧾</p>
-                <p className="text-ink/60 text-sm">
-                  No orders yet. They'll show up here as soon as a customer checks out.
-                </p>
-              </div>
-            ) : filteredOrders.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-ink/5 p-12 text-center">
-                <p className="text-3xl mb-2">🔍</p>
-                <p className="text-ink/60 text-sm">No orders match your filters.</p>
-              </div>
-            ) : (
-              filteredOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="bg-white rounded-2xl border border-ink/5 shadow-sm p-4 sm:p-5"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-display font-bold text-sm sm:text-base text-ink">
-                          {order.id}
-                        </h3>
-                        <span
-                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${orderStatusStyles[order.status] || "bg-cream text-ink/60"
-                            }`}
-                        >
-                          {order.status}
-                        </span>
-                      </div>
-                      <p className="text-ink/60 text-xs mt-1">
-                        {order.customer} · {order.phone || "no phone"}
-                      </p>
-                      {order.address && (
-                        <p className="text-ink/40 text-xs mt-0.5 max-w-md">
-                          {order.address}
-                        </p>
-                      )}
-                      <p className="text-ink/30 text-[10px] mt-1">
-                        {new Date(order.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-display font-extrabold text-lg text-chili">
-                        Rs. {order.total}
-                      </p>
-                      <p className="text-ink/40 text-xs">
-                        {order.items.reduce((s, i) => s + i.qty, 0)} items
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1.5 text-xs text-ink/60 mb-3 border-t border-ink/5 pt-3">
-                    {order.items.map((item) => (
-                      <span
-                        key={item.id}
-                        className="bg-cream px-2.5 py-1 rounded-full"
-                      >
-                        {item.title} × {item.qty}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="flex flex-wrap gap-1.5">
-                    {ORDER_STATUSES.map((status) => (
-                      <button
-                        key={status}
-                        onClick={() => handleUpdateOrderStatus(order.id, status)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-colors ${order.status === status
-                          ? "bg-chili border-chili text-white"
-                          : "bg-transparent border-ink/15 text-ink/60 hover:border-chili/50"
-                          }`}
-                      >
-                        {status}
-                      </button>
-                    ))}
-                  </div>
+              {reviewsLoading ? (
+                <p className="text-ink/40 text-sm text-center py-12">Loading reviews…</p>
+              ) : reviews.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-ink/5 p-12 text-center">
+                  <p className="text-3xl mb-2">💬</p>
+                  <p className="text-ink/60 text-sm">No reviews yet.</p>
                 </div>
-              ))
-            )}
-          </div>
-        ) : tab === "reviews" ? (
-          <div className="flex flex-col gap-5">
-            {/* Stat cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5">
-                <div className="flex items-center gap-2">
-                  <MessageSquareText className="w-4 h-4 text-ink/40" />
+              ) : filteredReviews.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-ink/5 p-12 text-center">
+                  <p className="text-3xl mb-2">🔍</p>
+                  <p className="text-ink/60 text-sm">No reviews match this filter.</p>
+                </div>
+              ) : (
+                filteredReviews.map((rev) => {
+                  const product = products.find((p) => p.id === rev.product_id);
+                  return (
+                    <div
+                      key={rev.id}
+                      className={`bg-white rounded-2xl border shadow-sm p-4 sm:p-5 ${
+                        rev.is_approved ? "border-ink/5" : "border-turmeric ring-1 ring-turmeric/20"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm text-ink">
+                              {rev.username}
+                            </span>
+                            <StarRow rating={rev.rating} />
+                            <span className="text-turmeric text-xs font-semibold">
+                              {rev.rating}
+                            </span>
+                            <span
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                rev.is_approved
+                                  ? "bg-basil/15 text-basil"
+                                  : "bg-turmeric/20 text-turmeric"
+                              }`}
+                            >
+                              {rev.is_approved ? "Approved" : "Pending"}
+                            </span>
+                          </div>
+                          <p className="text-ink/40 text-xs mt-0.5">
+                            on {product ? product.title : `Product #${rev.product_id}`}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-ink/70 text-sm mb-3">{rev.review}</p>
+                      <div className="flex gap-1.5">
+                        {!rev.is_approved ? (
+                          <button
+                            onClick={() => handleApproveReview(rev.id)}
+                            className="px-3 py-1.5 rounded-full text-xs font-semibold bg-basil/15 text-basil hover:bg-basil/25 transition-colors"
+                          >
+                            Approve
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleRejectReview(rev.id)}
+                            className="px-3 py-1.5 rounded-full text-xs font-semibold bg-cream text-ink/60 hover:bg-turmeric/20 transition-colors"
+                          >
+                            Unapprove
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteReview(rev.id)}
+                          className="px-3 py-1.5 rounded-full text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {tab === "products" && (
+            <>
+              {/* Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5">
                   <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
-                    Total
+                    Total Items
+                  </p>
+                  <p className="font-display font-extrabold text-2xl text-ink mt-1">
+                    {stats.total}
                   </p>
                 </div>
-                <p className="font-display font-extrabold text-2xl text-ink mt-1">
-                  {reviewStats.total}
-                </p>
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5">
+                  <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
+                    Avg. Price
+                  </p>
+                  <p className="font-display font-extrabold text-2xl text-chili mt-1">
+                    Rs. {stats.avgPrice}
+                  </p>
+                </div>
+                {Object.entries(stats.byCat)
+                  .slice(0, 2)
+                  .map(([cat, count]) => (
+                    <div
+                      key={cat}
+                      className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5"
+                    >
+                      <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
+                        {cat}
+                      </p>
+                      <p className="font-display font-extrabold text-2xl text-ink mt-1">
+                        {count}
+                      </p>
+                    </div>
+                  ))}
               </div>
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5">
-                <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
-                  Pending
-                </p>
-                <p className="font-display font-extrabold text-2xl text-turmeric mt-1">
-                  {reviewStats.pending}
-                </p>
-              </div>
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5">
-                <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
-                  Approved
-                </p>
-                <p className="font-display font-extrabold text-2xl text-basil mt-1">
-                  {reviewStats.approved}
-                </p>
-              </div>
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5">
-                <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
-                  Avg. Rating
-                </p>
-                <p className="font-display font-extrabold text-2xl text-chili mt-1">
-                  {reviewStats.avgRating}
-                </p>
-              </div>
-            </div>
 
-            {/* Filter tabs */}
-            <div className="flex items-center gap-1.5">
-              {["All", "Pending", "Approved"].map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setReviewFilter(f)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-colors ${reviewFilter === f
-                    ? "bg-chili border-chili text-white"
-                    : "bg-white border-ink/10 text-ink/60 hover:border-chili/40"
-                    }`}
-                >
-                  {f}
-                  {f === "Pending" && reviewStats.pending > 0 && ` (${reviewStats.pending})`}
-                </button>
-              ))}
-            </div>
+              <div className="grid lg:grid-cols-[380px_1fr] gap-6 items-start">
+                {/* FORM */}
+                <div className="bg-white rounded-2xl shadow-md border border-ink/5 p-5 sm:p-6 sticky top-20">
+                  <h2 className="font-display font-bold text-lg text-ink mb-4">
+                    {editingId ? "Edit Product" : "Add New Product"}
+                  </h2>
 
-            {reviewsLoading ? (
-              <p className="text-ink/40 text-sm text-center py-12">Loading reviews…</p>
-            ) : reviews.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-ink/5 p-12 text-center">
-                <p className="text-3xl mb-2">💬</p>
-                <p className="text-ink/60 text-sm">No reviews yet.</p>
-              </div>
-            ) : filteredReviews.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-ink/5 p-12 text-center">
-                <p className="text-3xl mb-2">🔍</p>
-                <p className="text-ink/60 text-sm">No reviews match this filter.</p>
-              </div>
-            ) : (
-              filteredReviews.map((rev) => {
-                const product = products.find((p) => p.id === rev.product_id);
-                return (
-                  <div
-                    key={rev.id}
-                    className={`bg-white rounded-2xl border shadow-sm p-4 sm:p-5 ${rev.is_approved ? "border-ink/5" : "border-turmeric"
-                      }`}
-                  >
-                    <div className="flex items-start justify-between gap-3 mb-2">
+                  <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-ink/60 mb-1.5">
+                        Title *
+                      </label>
+                      <input
+                        type="text"
+                        value={form.title}
+                        onChange={handleChange("title")}
+                        placeholder="e.g. Classic Beef Burger"
+                        className={`w-full bg-cream rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 ${
+                          errors.title ? "ring-2 ring-chili" : "focus:ring-chili"
+                        }`}
+                      />
+                      {errors.title && (
+                        <p className="text-chili text-xs mt-1">{errors.title}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-ink/60 mb-1.5">
+                        Description *
+                      </label>
+                      <textarea
+                        value={form.description}
+                        onChange={handleChange("description")}
+                        placeholder="Short description of the dish..."
+                        rows={3}
+                        className={`w-full bg-cream rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 resize-none ${
+                          errors.description ? "ring-2 ring-chili" : "focus:ring-chili"
+                        }`}
+                      />
+                      {errors.description && (
+                        <p className="text-chili text-xs mt-1">{errors.description}</p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-sm text-ink">
-                            {rev.username}
-                          </span>
-                          <StarRow rating={rev.rating} />
-                          <span className="text-turmeric text-xs font-semibold">
-                            {rev.rating}
-                          </span>
-                          <span
-                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${rev.is_approved
-                              ? "bg-basil/15 text-basil"
-                              : "bg-turmeric/20 text-turmeric"
-                              }`}
-                          >
-                            {rev.is_approved ? "Approved" : "Pending"}
-                          </span>
-                        </div>
-                        <p className="text-ink/40 text-xs mt-0.5">
-                          on {product ? product.title : `Product #${rev.product_id}`}
-                        </p>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-ink/60 mb-1.5">
+                          Price (Rs) *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={form.price}
+                          onChange={handleChange("price")}
+                          placeholder="749"
+                          className={`w-full bg-cream rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 ${
+                            errors.price ? "ring-2 ring-chili" : "focus:ring-chili"
+                          }`}
+                        />
+                        {errors.price && (
+                          <p className="text-chili text-xs mt-1">{errors.price}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-ink/60 mb-1.5">
+                          Rating *
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="5"
+                          step="0.1"
+                          value={form.rating}
+                          onChange={handleChange("rating")}
+                          placeholder="4.5"
+                          className={`w-full bg-cream rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 ${
+                            errors.rating ? "ring-2 ring-chili" : "focus:ring-chili"
+                          }`}
+                        />
+                        {errors.rating && (
+                          <p className="text-chili text-xs mt-1">{errors.rating}</p>
+                        )}
                       </div>
                     </div>
-                    <p className="text-ink/70 text-sm mb-3">{rev.review}</p>
-                    <div className="flex gap-1.5">
-                      {!rev.is_approved ? (
-                        <button
-                          onClick={() => handleApproveReview(rev.id)}
-                          className="px-3 py-1.5 rounded-full text-xs font-semibold bg-basil/15 text-basil hover:bg-basil/25 transition-colors"
-                        >
-                          Approve
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleRejectReview(rev.id)}
-                          className="px-3 py-1.5 rounded-full text-xs font-semibold bg-cream text-ink/60 hover:bg-turmeric/20 transition-colors"
-                        >
-                          Unapprove
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleDeleteReview(rev.id)}
-                        className="px-3 py-1.5 rounded-full text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-ink/60 mb-1.5">
+                        Category *
+                      </label>
+                      <select
+                        value={form.category}
+                        onChange={handleChange("category")}
+                        className="w-full bg-cream rounded-xl px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-chili"
                       >
-                        Delete
+                        {CATEGORIES.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-ink/60 mb-1.5">
+                        Image URL *
+                      </label>
+                      <input
+                        type="url"
+                        value={form.image}
+                        onChange={handleChange("image")}
+                        placeholder="https://images.unsplash.com/..."
+                        className={`w-full bg-cream rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 ${
+                          errors.image ? "ring-2 ring-chili" : "focus:ring-chili"
+                        }`}
+                      />
+                      {errors.image && (
+                        <p className="text-chili text-xs mt-1">{errors.image}</p>
+                      )}
+                      {form.image && !imagePreviewError && (
+                        <img
+                          src={form.image}
+                          alt="Preview"
+                          className="mt-2 w-full h-28 object-cover rounded-xl border border-ink/10"
+                          onError={() => setImagePreviewError(true)}
+                        />
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="submit"
+                        disabled={submitting}
+                        className="flex-1 bg-chili hover:bg-chili-dark disabled:opacity-60 transition-colors text-white font-semibold py-2.5 rounded-full text-sm shadow-md shadow-chili/25"
+                      >
+                        {submitting
+                          ? "Saving..."
+                          : editingId
+                          ? "Update Product"
+                          : "Add Product"}
                       </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        ) : (
-          <>
-            {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5">
-                <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
-                  Total Items
-                </p>
-                <p className="font-display font-extrabold text-2xl text-ink mt-1">
-                  {stats.total}
-                </p>
-              </div>
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5">
-                <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
-                  Avg. Price
-                </p>
-                <p className="font-display font-extrabold text-2xl text-chili mt-1">
-                  Rs. {stats.avgPrice}
-                </p>
-              </div>
-              {Object.entries(stats.byCat)
-                .slice(0, 2)
-                .map(([cat, count]) => (
-                  <div
-                    key={cat}
-                    className="bg-white rounded-2xl p-4 shadow-sm border border-ink/5"
-                  >
-                    <p className="text-ink/50 text-xs font-semibold uppercase tracking-wide">
-                      {cat}
-                    </p>
-                    <p className="font-display font-extrabold text-2xl text-ink mt-1">
-                      {count}
-                    </p>
-                  </div>
-                ))}
-            </div>
-
-            <div className="grid lg:grid-cols-[380px_1fr] gap-6 items-start">
-              {/* FORM */}
-              <div className="bg-white rounded-2xl shadow-md border border-ink/5 p-5 sm:p-6 sticky top-20">
-                <h2 className="font-display font-bold text-lg text-ink mb-4">
-                  {editingId ? "Edit Product" : "Add New Product"}
-                </h2>
-
-                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-ink/60 mb-1.5">
-                      Title *
-                    </label>
-                    <input
-                      type="text"
-                      value={form.title}
-                      onChange={handleChange("title")}
-                      placeholder="e.g. Classic Beef Burger"
-                      className={`w-full bg-cream rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 ${errors.title ? "ring-2 ring-chili" : "focus:ring-chili"
-                        }`}
-                    />
-                    {errors.title && (
-                      <p className="text-chili text-xs mt-1">{errors.title}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-ink/60 mb-1.5">
-                      Description *
-                    </label>
-                    <textarea
-                      value={form.description}
-                      onChange={handleChange("description")}
-                      placeholder="Short description of the dish..."
-                      rows={3}
-                      className={`w-full bg-cream rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 resize-none ${errors.description ? "ring-2 ring-chili" : "focus:ring-chili"
-                        }`}
-                    />
-                    {errors.description && (
-                      <p className="text-chili text-xs mt-1">{errors.description}</p>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-ink/60 mb-1.5">
-                        Price (Rs) *
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={form.price}
-                        onChange={handleChange("price")}
-                        placeholder="749"
-                        className={`w-full bg-cream rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 ${errors.price ? "ring-2 ring-chili" : "focus:ring-chili"
-                          }`}
-                      />
-                      {errors.price && (
-                        <p className="text-chili text-xs mt-1">{errors.price}</p>
+                      {editingId && (
+                        <button
+                          type="button"
+                          onClick={cancelEdit}
+                          className="px-4 py-2.5 rounded-full text-sm font-semibold border-2 border-ink/15 text-ink/70 hover:border-chili/50 transition-colors"
+                        >
+                          Cancel
+                        </button>
                       )}
                     </div>
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-ink/60 mb-1.5">
-                        Rating *
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="5"
-                        step="0.1"
-                        value={form.rating}
-                        onChange={handleChange("rating")}
-                        placeholder="4.5"
-                        className={`w-full bg-cream rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 ${errors.rating ? "ring-2 ring-chili" : "focus:ring-chili"
-                          }`}
-                      />
-                      {errors.rating && (
-                        <p className="text-chili text-xs mt-1">{errors.rating}</p>
-                      )}
-                    </div>
-                  </div>
+                  </form>
+                </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-ink/60 mb-1.5">
-                      Category *
-                    </label>
+                {/* PRODUCT LIST */}
+                <div>
+                  <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40 text-sm">
+                        🔍
+                      </span>
+                      <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search products..."
+                        className="w-full bg-white border border-ink/10 rounded-full pl-9 pr-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 focus:ring-chili"
+                      />
+                    </div>
                     <select
-                      value={form.category}
-                      onChange={handleChange("category")}
-                      className="w-full bg-cream rounded-xl px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-chili"
+                      value={filterCat}
+                      onChange={(e) => setFilterCat(e.target.value)}
+                      className="bg-white border border-ink/10 rounded-full px-4 py-2.5 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-chili"
                     >
+                      <option value="All">All Categories</option>
                       {CATEGORIES.map((c) => (
                         <option key={c} value={c}>
                           {c}
@@ -900,160 +1007,82 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-ink/60 mb-1.5">
-                      Image URL *
-                    </label>
-                    <input
-                      type="url"
-                      value={form.image}
-                      onChange={handleChange("image")}
-                      placeholder="https://images.unsplash.com/..."
-                      className={`w-full bg-cream rounded-xl px-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 ${errors.image ? "ring-2 ring-chili" : "focus:ring-chili"
-                        }`}
-                    />
-                    {errors.image && (
-                      <p className="text-chili text-xs mt-1">{errors.image}</p>
-                    )}
-                    {form.image && !imagePreviewError && (
-                      <img
-                        src={form.image}
-                        alt="Preview"
-                        className="mt-2 w-full h-28 object-cover rounded-xl border border-ink/10"
-                        onError={() => setImagePreviewError(true)}
-                      />
-                    )}
-                  </div>
-
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      type="submit"
-                      disabled={submitting}
-                      className="flex-1 bg-chili hover:bg-chili-dark disabled:opacity-60 transition-colors text-white font-semibold py-2.5 rounded-full text-sm"
-                    >
-                      {submitting
-                        ? "Saving..."
-                        : editingId
-                          ? "Update Product"
-                          : "Add Product"}
-                    </button>
-                    {editingId && (
-                      <button
-                        type="button"
-                        onClick={cancelEdit}
-                        className="px-4 py-2.5 rounded-full text-sm font-semibold border-2 border-ink/15 text-ink/70 hover:border-chili/50 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    )}
-                  </div>
-                </form>
-              </div>
-
-              {/* PRODUCT LIST */}
-              <div>
-                <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                  <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40 text-sm">
-                      🔍
-                    </span>
-                    <input
-                      type="text"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Search products..."
-                      className="w-full bg-white border border-ink/10 rounded-full pl-9 pr-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 focus:ring-chili"
-                    />
-                  </div>
-                  <select
-                    value={filterCat}
-                    onChange={(e) => setFilterCat(e.target.value)}
-                    className="bg-white border border-ink/10 rounded-full px-4 py-2.5 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-chili"
-                  >
-                    <option value="All">All Categories</option>
-                    {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {filtered.length === 0 ? (
-                  <div className="bg-white rounded-2xl border border-ink/5 p-12 text-center">
-                    <p className="text-3xl mb-2">🍽️</p>
-                    <p className="text-ink/60 text-sm">No products found.</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-3">
-                    {filtered.map((product) => (
-                      <div
-                        key={product.id}
-                        className={`bg-white rounded-2xl border shadow-sm p-3 sm:p-4 flex gap-3 sm:gap-4 items-center transition-all ${editingId === product.id
-                          ? "border-chili ring-2 ring-chili/20"
-                          : "border-ink/5"
+                  {filtered.length === 0 ? (
+                    <div className="bg-white rounded-2xl border border-ink/5 p-12 text-center">
+                      <p className="text-3xl mb-2">🍽️</p>
+                      <p className="text-ink/60 text-sm">No products found.</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      {filtered.map((product) => (
+                        <div
+                          key={product.id}
+                          className={`bg-white rounded-2xl border shadow-sm p-3 sm:p-4 flex gap-3 sm:gap-4 items-center transition-all ${
+                            editingId === product.id
+                              ? "border-chili ring-2 ring-chili/20"
+                              : "border-ink/5 hover:border-ink/15"
                           }`}
-                      >
-                        <img
-                          src={product.image}
-                          alt={product.title}
-                          className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-xl shrink-0"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-semibold text-sm sm:text-base text-ink truncate">
-                              {product.title}
-                            </h3>
-                            <span className="text-[10px] font-semibold bg-cream text-ink/60 px-2 py-0.5 rounded-full shrink-0">
-                              {product.category}
-                            </span>
+                        >
+                          <img
+                            src={product.image}
+                            alt={product.title}
+                            className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-xl shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-semibold text-sm sm:text-base text-ink truncate">
+                                {product.title}
+                              </h3>
+                              <span className="text-[10px] font-semibold bg-cream text-ink/60 px-2 py-0.5 rounded-full shrink-0">
+                                {product.category}
+                              </span>
+                            </div>
+                            <p className="text-ink/50 text-xs mt-0.5 line-clamp-1">
+                              {product.description}
+                            </p>
+                            <div className="flex items-center gap-3 mt-1.5">
+                              <span className="text-chili font-bold text-sm">
+                                Rs. {product.price}
+                              </span>
+                              <span className="text-turmeric text-xs font-semibold">
+                                ★ {product.rating}
+                              </span>
+                            </div>
                           </div>
-                          <p className="text-ink/50 text-xs mt-0.5 line-clamp-1">
-                            {product.description}
-                          </p>
-                          <div className="flex items-center gap-3 mt-1.5">
-                            <span className="text-chili font-bold text-sm">
-                              Rs. {product.price}
-                            </span>
-                            <span className="text-turmeric text-xs font-semibold">
-                              ★ {product.rating}
-                            </span>
+                          <div className="flex flex-col sm:flex-row gap-1.5 shrink-0">
+                            <button
+                              onClick={() => startEdit(product)}
+                              className="px-3 py-1.5 rounded-full text-xs font-semibold bg-cream text-ink hover:bg-turmeric/30 transition-colors"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => setConfirmDelete(product.id)}
+                              className="px-3 py-1.5 rounded-full text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                            >
+                              Delete
+                            </button>
                           </div>
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-1.5 shrink-0">
-                          <button
-                            onClick={() => startEdit(product)}
-                            className="px-3 py-1.5 rounded-full text-xs font-semibold bg-cream text-ink hover:bg-turmeric/30 transition-colors"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => setConfirmDelete(product.id)}
-                            className="px-3 py-1.5 rounded-full text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </>
-        )}
+            </>
+          )}
+        </main>
       </div>
 
-      {/* Delete confirm modal */}
+      {/* Delete Confirmation Modal */}
       {confirmDelete && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-pop-in">
             <h3 className="font-display font-bold text-lg text-ink mb-2">
               Delete product?
             </h3>
             <p className="text-ink/60 text-sm mb-5">
-              This action cannot be undone. The product will be removed from the
-              menu.
+              This action cannot be undone. The product will be removed from the menu catalog.
             </p>
             <div className="flex gap-2">
               <button
