@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 export default function AdminSettings() {
-  const [storeName, setStoreName] = useState("FlameBite Fast Food & Grill");
+  const [storeName, setStoreName] = useState("Crispy Bites Fast Food & Grill");
   const [currency, setCurrency] = useState("PKR (Rs.)");
   const [taxPercent, setTaxPercent] = useState("0");
   const [deliveryFee, setDeliveryFee] = useState("150");

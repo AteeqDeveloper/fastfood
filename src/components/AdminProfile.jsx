@@ -3,7 +3,7 @@ import { User, ShieldCheck, Mail, Key, LogOut, ExternalLink, Calendar, Check } f
 
 export default function AdminProfile({ session, onSignOut, onBackToStorefront }) {
   const [copied, setCopied] = useState(false);
-  const email = session?.user?.email || "admin@flamebite.com";
+  const email = session?.user?.email || "admin@crispybites.com";
   const userId = session?.user?.id || "usr_session_active";
   const lastSignIn = session?.user?.last_sign_in_at
     ? new Date(session.user.last_sign_in_at).toLocaleString()

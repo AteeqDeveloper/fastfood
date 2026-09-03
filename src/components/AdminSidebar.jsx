@@ -140,7 +140,7 @@ export default function AdminSidebar({
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="font-display font-black text-lg tracking-tight text-white truncate">
-                  Flame<span className="text-chili">Bite</span>
+                  Crispy<span className="text-chili">Bites</span>
                 </span>
               </div>
               <div className="flex items-center gap-1.5 mt-0.5">

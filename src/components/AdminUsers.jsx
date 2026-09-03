@@ -5,7 +5,7 @@ const INITIAL_STAFF = [
   {
     id: "usr_1",
     name: "Alex Martinez",
-    email: "alex.admin@flamebite.com",
+    email: "alex.admin@crispybites.com",
     role: "Super Admin",
     status: "Active",
     lastActive: "Just now",
@@ -14,7 +14,7 @@ const INITIAL_STAFF = [
   {
     id: "usr_2",
     name: "Sarah Chen",
-    email: "sarah.pos@flamebite.com",
+    email: "sarah.pos@crispybites.com",
     role: "Cashier / POS",
     status: "Active",
     lastActive: "15 mins ago",
@@ -23,7 +23,7 @@ const INITIAL_STAFF = [
   {
     id: "usr_3",
     name: "Tariq Mahmood",
-    email: "tariq.kitchen@flamebite.com",
+    email: "tariq.kitchen@crispybites.com",
     role: "Kitchen Head",
     status: "Active",
     lastActive: "1 hour ago",
@@ -32,7 +32,7 @@ const INITIAL_STAFF = [
   {
     id: "usr_4",
     name: "Hassan Ali",
-    email: "hassan.delivery@flamebite.com",
+    email: "hassan.delivery@crispybites.com",
     role: "Delivery Lead",
     status: "Offline",
     lastActive: "Yesterday",
@@ -85,7 +85,7 @@ export default function AdminUsers({ session }) {
         <div className="bg-white rounded-2xl p-4 border border-ink/5 shadow-sm">
           <p className="text-xs font-bold text-ink/50 uppercase tracking-wider">Current Admin</p>
           <p className="font-display font-bold text-xs text-chili mt-2 truncate">
-            {session?.user?.email || "admin@flamebite.com"}
+            {session?.user?.email || "admin@crispybites.com"}
           </p>
         </div>
       </div>

@@ -415,7 +415,7 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
                 <Flame className="w-4 h-4 fill-white text-white" />
               </div>
               <h1 className="font-display font-black text-sm tracking-tight truncate">
-                Flame<span className="text-chili">Bite</span> <span className="text-cream/60 font-medium">/ {currentNavItem.label}</span>
+                Crispy<span className="text-chili">Bites</span> <span className="text-cream/60 font-medium">/ {currentNavItem.label}</span>
               </h1>
             </div>
           </div>

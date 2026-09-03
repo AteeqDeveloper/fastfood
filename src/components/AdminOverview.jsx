@@ -75,7 +75,7 @@ export default function AdminOverview({
               <Flame className="w-3.5 h-3.5 fill-chili text-chili" /> Live System Active
             </div>
             <h2 className="font-display font-black text-2xl sm:text-3xl text-white tracking-tight">
-              Welcome back to <span className="text-turmeric">FlameBite Admin</span>
+              Welcome back to <span className="text-turmeric">Crispy Bites Admin</span>
             </h2>
             <p className="text-cream/70 text-xs sm:text-sm max-w-xl">
               Monitor real-time kitchen orders, process walk-in POS billing, manage food menu items, and review customer satisfaction ratings.
