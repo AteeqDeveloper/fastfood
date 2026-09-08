@@ -5,6 +5,7 @@ import AdminOverview from "./AdminOverview";
 import AdminAnalytics from "./AdminAnalytics";
 import AdminLogin from "./AdminLogin";
 import AdminPOS from "./AdminPOS";
+import AdminDeals from "./AdminDeals";
 import AdminUsers from "./AdminUsers";
 import AdminSettings from "./AdminSettings";
 import AdminProfile from "./AdminProfile";
@@ -66,7 +67,17 @@ function StarRow({ rating }) {
   );
 }
 
-function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
+function AdminDashboard({
+  products,
+  deals = [],
+  onAdd,
+  onUpdate,
+  onDelete,
+  onSaveDeal,
+  onDeleteDeal,
+  onToggleDealActive,
+  onBack,
+}) {
   // ---- Auth ----
   const [session, setSession] = useState(null);
   const [sessionChecked, setSessionChecked] = useState(false);
@@ -471,8 +482,19 @@ function AdminDashboard({ products, onAdd, onUpdate, onDelete, onBack }) {
           {tab === "pos" && (
             <AdminPOS
               products={products}
+              deals={deals}
               session={session}
               onOrderCompleted={fetchOrders}
+            />
+          )}
+
+          {tab === "deals" && (
+            <AdminDeals
+              deals={deals}
+              products={products}
+              onSaveDeal={onSaveDeal}
+              onDeleteDeal={onDeleteDeal}
+              onToggleActive={onToggleDealActive}
             />
           )}
 

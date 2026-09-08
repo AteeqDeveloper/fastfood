@@ -1,9 +1,16 @@
 import { useState, useMemo, useEffect } from "react";
 import { supabaseClient } from "./lib/supabaseClient";
+import {
+  fetchDealsService,
+  saveDealService,
+  deleteDealService,
+  toggleDealActiveService,
+} from "./lib/dealsService";
 import { CartProvider } from "./context/CartContext";
 import Header from "./components/Header";
 import HomePage from "./components/HomePage";
 import CollectionPage from "./components/CollectionPage";
+import DealsPage from "./components/DealsPage";
 import CartDrawer from "./components/CartDrawer";
 import ProductDetailModal from "./components/ProductDetailModal";
 import AdminDashboard from "./components/AdminDashboard";
@@ -18,6 +25,12 @@ function getInitialPage() {
     if (path === "/admin" || path === "/admin/" || hash === "#admin" || hash === "#/admin") {
       return "admin";
     }
+    if (path === "/deals" || path === "/deals/" || hash === "#deals" || hash === "#/deals") {
+      return "deals";
+    }
+    if (path === "/track" || path === "/track/" || hash === "#track" || hash === "#/track") {
+      return "track";
+    }
   }
   return "home";
 }
@@ -26,6 +39,7 @@ function Storefront({
   page,
   setPage,
   products,
+  deals,
   productsLoading,
   productsError,
   category,
@@ -73,6 +87,8 @@ function Storefront({
 
         {page === "track" ? (
           <TrackOrderPage initialPhone={trackPrefillPhone} />
+        ) : page === "deals" ? (
+          <DealsPage deals={deals} onExploreMenu={() => setPage("collection")} />
         ) : productsLoading ? (
           <div className="flex items-center justify-center py-32">
             <p className="text-ink/40 text-sm font-medium">Loading menu…</p>
@@ -82,6 +98,7 @@ function Storefront({
             topProducts={topProducts}
             categories={categories}
             onExplore={() => setPage("collection")}
+            onDeals={() => setPage("deals")}
             onCategorySelect={(cat) => {
               setCategory(cat);
               setPage("collection");
@@ -132,8 +149,9 @@ function Storefront({
 }
 
 function App() {
-  const [page, setPage] = useState(getInitialPage); // "home" | "collection" | "track" | "admin"
+  const [page, setPage] = useState(getInitialPage); // "home" | "collection" | "track" | "deals" | "admin"
   const [products, setProducts] = useState([]);
+  const [deals, setDeals] = useState([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState("");
 
@@ -149,7 +167,7 @@ function App() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
 
-  // Load products from Supabase
+  // Load products and deals
   const fetchProducts = async () => {
     setProductsLoading(true);
     const { data, error } = await supabaseClient
@@ -165,8 +183,14 @@ function App() {
     setProductsLoading(false);
   };
 
+  const fetchDeals = async () => {
+    const loadedDeals = await fetchDealsService();
+    setDeals(loadedDeals || []);
+  };
+
   useEffect(() => {
     fetchProducts();
+    fetchDeals();
   }, []);
 
   const handleNavigate = (newPage) => {
@@ -174,7 +198,13 @@ function App() {
     if (typeof window !== "undefined") {
       if (newPage === "admin") {
         window.history.pushState({}, "", "/admin");
-      } else if (window.location.pathname === "/admin") {
+      } else if (newPage === "deals") {
+        window.history.pushState({}, "", "/deals");
+      } else if (newPage === "track") {
+        window.history.pushState({}, "", "/track");
+      } else if (newPage === "collection") {
+        window.history.pushState({}, "", "/menu");
+      } else {
         window.history.pushState({}, "", "/");
       }
     }
@@ -227,7 +257,7 @@ function App() {
     setDetailModalOpen(true);
   };
 
-  // Admin CRUD
+  // Admin Product CRUD
   const handleAddProduct = async (payload) => {
     const { data, error } = await supabaseClient
       .from("products")
@@ -264,6 +294,22 @@ function App() {
     setProducts((prev) => prev.filter((p) => p.id !== id));
   };
 
+  // Admin Deals CRUD
+  const handleSaveDeal = async (payload) => {
+    const res = await saveDealService(payload, deals);
+    setDeals(res.updatedList);
+  };
+
+  const handleDeleteDeal = async (id) => {
+    const next = await deleteDealService(id, deals);
+    setDeals(next);
+  };
+
+  const handleToggleDealActive = async (id, isActive) => {
+    const next = await toggleDealActiveService(id, isActive, deals);
+    setDeals(next);
+  };
+
   useEffect(() => {
     if (page === "home" && search.trim() !== "") {
       setPage("collection");
@@ -298,9 +344,13 @@ function App() {
     return (
       <AdminDashboard
         products={products}
+        deals={deals}
         onAdd={handleAddProduct}
         onUpdate={handleUpdateProduct}
         onDelete={handleDeleteProduct}
+        onSaveDeal={handleSaveDeal}
+        onDeleteDeal={handleDeleteDeal}
+        onToggleDealActive={handleToggleDealActive}
         onBack={() => {
           window.history.pushState({}, "", "/");
           setPage("home");
@@ -310,11 +360,12 @@ function App() {
   }
 
   return (
-    <CartProvider products={products}>
+    <CartProvider products={products} deals={deals}>
       <Storefront
         page={page}
         setPage={handleNavigate}
         products={products}
+        deals={deals}
         productsLoading={productsLoading}
         productsError={productsError}
         category={category}

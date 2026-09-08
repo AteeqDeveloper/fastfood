@@ -2,7 +2,7 @@ import { useCart } from "../context/CartContext";
 import QuantityStepper from "./QuantityStepper";
 import { Sparkles, Check, Plus, Flame } from "lucide-react";
 
-function DealsSection({ deals }) {
+function DealsSection({ deals, onExploreDeals }) {
   const { cart, handleAddToCart, updateQty } = useCart();
 
   if (!deals || deals.length === 0) return null;
@@ -26,6 +26,16 @@ function DealsSection({ deals }) {
             Bundled meals crafted to save you money without compromising on flavor.
           </p>
         </div>
+
+        {onExploreDeals && (
+          <button
+            onClick={onExploreDeals}
+            className="inline-flex items-center gap-2 bg-charcoal hover:bg-chili text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-full transition-all shadow-md active:scale-95 self-start sm:self-auto"
+          >
+            <span>Explore All Deals</span>
+            <span className="text-turmeric">🏷️ →</span>
+          </button>
+        )}
       </div>
 
       <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

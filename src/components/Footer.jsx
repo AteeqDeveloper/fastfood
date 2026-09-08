@@ -26,6 +26,7 @@ function Footer({ onNavigate }) {
               {[
                 { label: "Home", page: "home" },
                 { label: "Menu", page: "collection" },
+                { label: "Deals & Offers", page: "deals" },
                 { label: "Track Order", page: "track" },
               ].map((link) => (
                 <button

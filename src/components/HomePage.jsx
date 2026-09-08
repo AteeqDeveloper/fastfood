@@ -88,6 +88,7 @@ function HomePage({
   topProducts,
   categories,
   onExplore,
+  onDeals,
   onCategorySelect,
   onOpenDetails,
 }) {
@@ -158,10 +159,11 @@ function HomePage({
               </button>
 
               <button
-                onClick={onExplore}
-                className="bg-white/10 hover:bg-white/20 active:scale-95 text-cream border border-white/15 font-bold px-6 py-4 rounded-full text-sm sm:text-base backdrop-blur-md transition-all"
+                onClick={onDeals || onExplore}
+                className="bg-white/10 hover:bg-white/20 active:scale-95 text-cream border border-white/15 font-bold px-6 py-4 rounded-full text-sm sm:text-base backdrop-blur-md transition-all flex items-center gap-2"
               >
-                View Today's Deals 🏷️
+                <span>View Today's Deals</span>
+                <span className="text-turmeric">🏷️</span>
               </button>
             </div>
 
@@ -310,7 +312,7 @@ function HomePage({
       {/* TODAY'S DEALS */}
       {/* ========================================================================= */}
       <div ref={dealsRef} className={`reveal ${dealsVisible ? "reveal-visible" : ""}`}>
-        <DealsSection deals={deals} />
+        <DealsSection deals={deals.slice(0, 3)} onExploreDeals={onDeals} />
       </div>
 
       {/* ========================================================================= */}

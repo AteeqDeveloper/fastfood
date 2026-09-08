@@ -10,11 +10,13 @@ import {
   Home,
   UtensilsCrossed,
   Truck,
+  Tag,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { label: "Home", page: "home", icon: Home },
   { label: "Menu", page: "collection", icon: UtensilsCrossed },
+  { label: "Deals", page: "deals", icon: Tag, isHot: true },
   { label: "Track Order", page: "track", icon: Truck },
 ];
 
@@ -91,13 +93,18 @@ function Header({
               <button
                 key={item.page}
                 onClick={() => handleNavClick(item.page)}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
                   page === item.page
                     ? "bg-chili text-white shadow-md shadow-chili/25 scale-[1.02]"
                     : "text-cream/70 hover:text-white hover:bg-white/5"
                 }`}
               >
-                {item.label}
+                <span>{item.label}</span>
+                {item.isHot && (
+                  <span className="bg-turmeric text-charcoal text-[9px] font-black px-1.5 py-0.2 rounded-full uppercase tracking-wider animate-pulse">
+                    HOT
+                  </span>
+                )}
               </button>
             ))}
           </nav>
@@ -177,6 +184,11 @@ function Header({
                   <div className="flex items-center gap-3">
                     <Icon className="w-4 h-4 opacity-80" />
                     <span>{item.label}</span>
+                    {item.isHot && (
+                      <span className="bg-turmeric text-charcoal text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                        HOT
+                      </span>
+                    )}
                   </div>
                   {isActive && <span className="text-xs">●</span>}
                 </button>

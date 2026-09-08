@@ -40,6 +40,14 @@ export const ADMIN_NAV_ITEMS = [
     group: "Operations",
   },
   {
+    id: "deals",
+    label: "Deals & Combos",
+    icon: Flame,
+    badge: "Hot",
+    badgeColor: "bg-chili text-white",
+    group: "Operations",
+  },
+  {
     id: "orders",
     label: "Orders",
     icon: ReceiptText,

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useMemo, useEffect, useCallback } from "react";
 import { supabaseClient } from "../lib/supabaseClient";
-import { deals } from "../data/deals";
+import { deals as defaultDeals } from "../data/deals";
 
 const CART_STORAGE_KEY = "crispybites_cart";
 
@@ -19,7 +19,7 @@ function loadCart() {
 
 const CartContext = createContext(null);
 
-export function CartProvider({ products, children }) {
+export function CartProvider({ products = [], deals = [], children }) {
   const [cart, setCart] = useState(loadCart);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
@@ -35,9 +35,12 @@ export function CartProvider({ products, children }) {
 
   const cartCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
 
-  // Deals are virtual products (fixed combo IDs 9000+) merged in so the
+  // Deals are virtual products (combo IDs 9000+) merged in so the
   // existing cart/checkout/order code works for them with no special-casing.
-  const cartLookupProducts = useMemo(() => [...products, ...deals], [products]);
+  const cartLookupProducts = useMemo(() => {
+    const dealsList = deals && deals.length > 0 ? deals : defaultDeals;
+    return [...products, ...dealsList];
+  }, [products, deals]);
 
   const cartItems = useMemo(
     () =>

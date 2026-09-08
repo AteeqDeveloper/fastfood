@@ -29,12 +29,13 @@ import {
 
 const POS_CATEGORY_ICONS = {
   All: "✨",
+  Deals: "🏷️",
+  Deal: "🏷️",
   Burger: "🍔",
   Shawarma: "🌯",
   Pizza: "🍕",
   Sides: "🍟",
   Drinks: "🥤",
-  Deal: "🏷️",
 };
 
 const ORDER_TYPES = [
@@ -47,24 +48,39 @@ const TABLES = Array.from({ length: 12 }, (_, i) => `Table ${i + 1}`);
 
 const QUICK_CASH = [500, 1000, 1500, 2000, 5000];
 
-export default function AdminPOS({ products = [], session, onOrderCompleted }) {
-  // Menu items: Supabase products + deals
+export default function AdminPOS({
+  products = [],
+  deals = [],
+  session,
+  onOrderCompleted,
+}) {
+  // Menu items: Supabase products + Active Deals
+  const activeDeals = useMemo(() => {
+    return (deals.length > 0 ? deals : []).filter(
+      (d) => d.status === "active" || d.isActive !== false
+    ).map((d) => ({
+      ...d,
+      isDeal: true,
+      category: "Deals",
+    }));
+  }, [deals]);
+
   const allItems = useMemo(() => {
-    return [...products, ...deals];
-  }, [products]);
+    return [...products, ...activeDeals];
+  }, [products, activeDeals]);
 
   const categories = useMemo(() => {
-    const cats = ["All", ...new Set(products.map((p) => p.category)), "Deal"];
-    return cats;
+    const rawCategories = [...new Set(products.map((p) => p.category))];
+    return ["All", "Deals", ...rawCategories];
   }, [products]);
 
   const categoryCounts = useMemo(() => {
-    const counts = { All: allItems.length };
-    allItems.forEach((item) => {
+    const counts = { All: allItems.length, Deals: activeDeals.length };
+    products.forEach((item) => {
       counts[item.category] = (counts[item.category] || 0) + 1;
     });
     return counts;
-  }, [allItems]);
+  }, [allItems, activeDeals, products]);
 
   // POS State
   const [selectedCat, setSelectedCat] = useState("All");
@@ -129,14 +145,23 @@ export default function AdminPOS({ products = [], session, onOrderCompleted }) {
         next[idx] = { ...next[idx], qty: next[idx].qty + 1 };
         return next;
       }
+      const isDeal = Boolean(
+        product.isDeal ||
+        product.category === "Deals" ||
+        product.category === "Deal" ||
+        (Array.isArray(product.items) && product.items.length > 0)
+      );
       return [
         ...prev,
         {
           id: product.id,
           title: product.title,
           price: product.price,
+          originalPrice: product.originalPrice || product.price,
           category: product.category,
           image: product.image,
+          isDeal,
+          items: product.items || [],
           qty: 1,
           notes: "",
         },
@@ -179,6 +204,15 @@ export default function AdminPOS({ products = [], session, onOrderCompleted }) {
   // Calculations
   const subtotal = useMemo(() => {
     return ticketItems.reduce((sum, item) => sum + item.price * item.qty, 0);
+  }, [ticketItems]);
+
+  const dealsSavings = useMemo(() => {
+    return ticketItems.reduce((sum, item) => {
+      if (item.isDeal && item.originalPrice > item.price) {
+        return sum + (item.originalPrice - item.price) * item.qty;
+      }
+      return sum;
+    }, 0);
   }, [ticketItems]);
 
   const discountAmount = useMemo(() => {
@@ -596,9 +630,18 @@ const reprintBill = (bill) => {
                       alt={product.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-                    <span className="absolute top-1.5 left-1.5 bg-charcoal/80 text-cream text-[9px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-md">
-                      {product.category}
+                    <span
+                      className={`absolute top-1.5 left-1.5 text-white text-[9px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-md ${
+                        product.isDeal ? "bg-chili font-black shadow-sm" : "bg-charcoal/80"
+                      }`}
+                    >
+                      {product.isDeal ? "🏷️ COMBO" : product.category}
                     </span>
+                    {product.discountPercent > 0 && (
+                      <span className="absolute bottom-1.5 left-1.5 bg-turmeric text-charcoal text-[9px] font-black px-1.5 py-0.2 rounded shadow-sm">
+                        {product.discountPercent}% OFF
+                      </span>
+                    )}
                   </div>
 
                   <div className="w-full min-w-0">
@@ -734,29 +777,60 @@ const reprintBill = (bill) => {
           </div>
 
           {/* Ticket Items List */}
-          <div className="flex flex-col gap-2 max-h-60 overflow-y-auto scroll-thin pr-1 border-b border-ink/10 pb-3">
+          <div className="flex flex-col gap-2 max-h-64 overflow-y-auto scroll-thin pr-1 border-b border-ink/10 pb-3">
             {ticketItems.length === 0 ? (
               <div className="text-center py-8 text-ink/40 text-xs font-medium">
-                Tap items from menu to add to bill
+                Tap items or combo deals from menu to add to bill
               </div>
             ) : (
               ticketItems.map((item) => (
                 <div
                   key={item.id}
-                  className="bg-cream/50 rounded-xl p-2.5 flex flex-col gap-1.5 border border-ink/5"
+                  className={`rounded-xl p-2.5 flex flex-col gap-1.5 border transition-all ${
+                    item.isDeal
+                      ? "bg-orange-50/60 border-chili/30"
+                      : "bg-cream/50 border-ink/5"
+                  }`}
                 >
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-xs text-ink truncate">{item.title}</p>
-                      <p className="text-[11px] text-chili font-extrabold">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {item.isDeal && (
+                          <span className="bg-chili text-white text-[9px] font-black px-1.5 py-0.2 rounded uppercase tracking-wider">
+                            DEAL
+                          </span>
+                        )}
+                        <p className="font-bold text-xs text-ink truncate">{item.title}</p>
+                      </div>
+
+                      <p className="text-[11px] text-chili font-extrabold mt-0.5">
                         Rs. {item.price * item.qty}{" "}
+                        {item.originalPrice > item.price && (
+                          <span className="text-ink/30 line-through text-[10px] font-normal mr-1">
+                            Rs. {item.originalPrice * item.qty}
+                          </span>
+                        )}
                         <span className="text-ink/40 font-normal">
                           (Rs. {item.price} each)
                         </span>
                       </p>
+
+                      {/* Included Items for Combos */}
+                      {item.isDeal && item.items && item.items.length > 0 && (
+                        <div className="mt-1 bg-white/80 rounded-lg p-1.5 border border-chili/10 text-[10px] text-ink/70 font-semibold space-y-0.5">
+                          <p className="text-[9px] font-extrabold uppercase text-ink/40 tracking-wider">
+                            Included Items:
+                          </p>
+                          {item.items.map((sub, sidx) => (
+                            <p key={sidx} className="truncate text-ink/80">
+                              • {sub}
+                            </p>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0 mt-0.5">
                       <QuantityStepper
                         quantity={item.qty}
                         onIncrement={() => updateTicketQty(item.id, 1)}
@@ -831,21 +905,44 @@ const reprintBill = (bill) => {
           {/* Bill Totals Summary */}
           <div className="bg-cream/60 rounded-xl p-3 flex flex-col gap-1.5 border border-ink/5">
             <div className="flex justify-between text-xs text-ink/60">
+              <span>Items Gross Total</span>
+              <span>Rs. {subtotal + dealsSavings}</span>
+            </div>
+
+            {dealsSavings > 0 && (
+              <div className="flex justify-between text-xs text-basil font-semibold">
+                <span className="flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-basil" /> Deals / Combo Savings
+                </span>
+                <span>−Rs. {dealsSavings}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between text-xs text-ink/80 font-bold border-t border-ink/5 pt-1">
               <span>Subtotal</span>
               <span>Rs. {subtotal}</span>
             </div>
+
             {discountAmount > 0 && (
               <div className="flex justify-between text-xs text-chili font-semibold">
-                <span>Discount ({discountType})</span>
+                <span>Order Discount ({discountType})</span>
                 <span>−Rs. {discountAmount}</span>
               </div>
             )}
+
             {taxAmount > 0 && (
-              <div className="flex justify-between text-xs text-basil font-semibold">
+              <div className="flex justify-between text-xs text-ink/70 font-semibold">
                 <span>GST Tax (5%)</span>
                 <span>+Rs. {taxAmount}</span>
               </div>
             )}
+
+            {(dealsSavings > 0 || discountAmount > 0) && (
+              <div className="bg-basil/10 text-basil text-[10px] font-extrabold px-2 py-1 rounded-lg text-center">
+                Total Customer Savings: Rs. {dealsSavings + discountAmount}
+              </div>
+            )}
+
             <div className="border-t border-ink/10 pt-2 flex justify-between items-baseline">
               <span className="font-display font-bold text-xs sm:text-sm text-ink">Net Payable</span>
               <span className="font-display font-extrabold text-xl sm:text-2xl text-chili">
@@ -1043,10 +1140,22 @@ const reprintBill = (bill) => {
                   {receiptData.items.map((item, idx) => (
                     <div
                       key={idx}
-                      className="grid grid-cols-[1fr_25px_45px_55px] text-[10px] sm:text-[11px] items-start"
+                      className="grid grid-cols-[1fr_25px_45px_55px] text-[10px] sm:text-[11px] items-start pb-1"
                     >
                       <div className="min-w-0 pr-1">
-                        <p className="font-semibold truncate">{item.title}</p>
+                        <p className="font-semibold truncate">
+                          {item.isDeal && (
+                            <span className="font-bold text-chili mr-1">[DEAL]</span>
+                          )}
+                          {item.title}
+                        </p>
+                        {item.isDeal && item.items && item.items.length > 0 && (
+                          <div className="text-[9px] text-ink/70 pl-2">
+                            {item.items.map((sub, sidx) => (
+                              <p key={sidx}>└ {sub}</p>
+                            ))}
+                          </div>
+                        )}
                         {item.notes && (
                           <p className="text-[9px] text-ink/50 italic">*{item.notes}</p>
                         )}
