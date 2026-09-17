@@ -1,14 +1,5 @@
 import { Star, RotateCcw, SlidersHorizontal, Sparkles } from "lucide-react";
-
-const CATEGORY_ICONS = {
-  All: "✨",
-  Burger: "🍔",
-  Shawarma: "🌯",
-  Pizza: "🍕",
-  Sides: "🍟",
-  Drinks: "🥤",
-  Deal: "🏷️",
-};
+import { getCategoryImage } from "../data/categories";
 
 function Sidebar({
   categories,
@@ -87,17 +78,24 @@ function Sidebar({
                   <button
                     key={cat}
                     onClick={() => setCategory(cat)}
-                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all text-left ${
+                    className={`group flex items-center justify-between px-3 py-2 rounded-2xl text-xs font-bold transition-all text-left ${
                       isActive
                         ? "bg-chili text-white shadow-md shadow-chili/25"
                         : "bg-cream/60 hover:bg-cream text-ink/80 hover:text-ink"
                     }`}
                   >
-                    <span className="flex items-center gap-2">
-                      <span className="text-base">{CATEGORY_ICONS[cat] || "🍽️"}</span>
-                      <span>{cat}</span>
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-7 h-7 rounded-lg overflow-hidden shrink-0 shadow-xs bg-ink/5 ring-1 ring-ink/10">
+                        <img
+                          src={getCategoryImage(cat)}
+                          alt={cat}
+                          className="w-full h-full object-cover object-center group-hover:scale-115 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                      </div>
+                      <span className="truncate">{cat}</span>
                     </span>
-                    {isActive && <span className="text-white text-xs">✓</span>}
+                    {isActive && <span className="text-white text-xs shrink-0 font-black">✓</span>}
                   </button>
                 );
               })}

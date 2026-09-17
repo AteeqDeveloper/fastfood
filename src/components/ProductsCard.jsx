@@ -1,61 +1,78 @@
 import { useCart } from "../context/CartContext";
 import QuantityStepper from "./QuantityStepper";
-import { Star, Flame, Plus } from "lucide-react";
+import { Star, Plus, Check } from "lucide-react";
+import { useState } from "react";
 
 function ProductCard({ product, onOpenDetails }) {
   const { cart, handleAddToCart, updateQty } = useCart();
   const quantity = cart[product.id] || 0;
+  const [justAdded, setJustAdded] = useState(false);
+
+  const onAdd = (e) => {
+    e.stopPropagation();
+    handleAddToCart(product.id);
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 800);
+  };
 
   return (
     <div
       onClick={onOpenDetails}
-      className="group relative bg-white rounded-3xl shadow-sm hover:shadow-2xl overflow-hidden transition-all duration-500 hover:-translate-y-1.5 border border-ink/5 flex flex-col justify-between cursor-pointer animate-pop-in"
+      className="group relative bg-[#FFFAF0] rounded-3xl overflow-hidden transition-all duration-300 hover:-translate-y-1.5 border border-[#3A2418]/10 shadow-[0_4px_20px_-4px_rgba(58,36,24,0.06)] hover:shadow-[0_16px_32px_-8px_rgba(58,36,24,0.14)] hover:border-[#C65D21]/30 flex flex-col justify-between cursor-pointer animate-pop-in"
     >
       {/* Image Container with Badges */}
-      <div className="relative h-52 w-full overflow-hidden bg-cream">
+      <div className="relative h-52 sm:h-56 w-full overflow-hidden bg-[#FFF3DC]">
         <img
           src={product.image}
           alt={product.title}
-          className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
+          loading="lazy"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
         />
 
-        {/* Ambient Gradient Overlay on hover */}
-        <div className="absolute inset-0 bg-gradient-to-t from-charcoal/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        {/* Ambient Dark Brown vignette on hover */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#3A2418]/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-        {/* Category Pill */}
-        <span className="absolute top-3.5 left-3.5 bg-charcoal/80 backdrop-blur-md text-cream text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
+        {/* Category Handcrafted Tag */}
+        <span className="absolute top-3 left-3 bg-[#3A2418]/85 backdrop-blur-md text-[#FFF3DC] text-[10px] sm:text-[11px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm border border-[#FFF3DC]/20">
           {product.category}
         </span>
 
-        {/* Rating Floating Pill */}
-        <div className="absolute top-3.5 right-3.5 bg-white/90 backdrop-blur-md text-charcoal px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md border border-white/50">
-          <Star className="w-3.5 h-3.5 fill-turmeric text-turmeric" />
-          <span className="text-xs font-black">{product.rating}</span>
+        {/* Rating Floating Stamp in Mustard Yellow */}
+        <div className="absolute top-3 right-3 bg-[#FFFAF0]/95 backdrop-blur-md text-[#3A2418] px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md border border-[#E6A93A]/30">
+          <Star className="w-3.5 h-3.5 fill-[#E6A93A] text-[#E6A93A]" />
+          <span className="text-xs font-black">{product.rating || "4.9"}</span>
         </div>
 
+        {/* Decorative Badge if available */}
+        {product.badge && (
+          <span className="absolute bottom-3 left-3 bg-[#66734A] text-white text-[10px] font-bold px-2.5 py-0.5 rounded-md shadow-md uppercase tracking-wider">
+            {product.badge}
+          </span>
+        )}
+
         {/* Quick View Prompt on Hover */}
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 text-white text-xs font-bold bg-charcoal/80 backdrop-blur-md px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-lg">
-          Tap for Details &amp; Reviews ↗
+        <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 text-[#FFF3DC] text-[11px] font-bold bg-[#3A2418]/90 px-3 py-1 rounded-full whitespace-nowrap shadow-md">
+          Details ↗
         </div>
       </div>
 
       {/* Card Body */}
-      <div className="p-5 flex flex-col flex-1 justify-between">
+      <div className="p-5 sm:p-6 flex flex-col flex-1 justify-between">
         <div>
-          <h3 className="font-display font-extrabold text-lg text-ink leading-snug group-hover:text-chili transition-colors">
+          <h3 className="font-display font-extrabold text-lg sm:text-xl text-[#3A2418] leading-snug group-hover:text-[#C65D21] transition-colors">
             {product.title}
           </h3>
 
-          <p className="text-ink/60 text-xs mt-1.5 line-clamp-2 leading-relaxed font-medium">
+          <p className="text-[#3A2418]/70 text-xs sm:text-sm mt-2 line-clamp-2 leading-relaxed font-normal">
             {product.description}
           </p>
         </div>
 
-        {/* Price & Cart Actions */}
-        <div className="flex justify-between items-center mt-5 pt-3 border-t border-ink/5">
+        {/* Price & Add to Cart Actions */}
+        <div className="flex justify-between items-center mt-6 pt-4 border-t border-[#3A2418]/10">
           <div>
-            <span className="text-[10px] uppercase font-bold text-ink/40 block -mb-0.5">Price</span>
-            <h4 className="text-chili text-xl font-black font-display tracking-tight">
+            <span className="text-[10px] uppercase font-bold text-[#3A2418]/50 block">Price</span>
+            <h4 className="text-[#C65D21] text-xl sm:text-2xl font-black font-display tracking-tight">
               Rs. {product.price}
             </h4>
           </div>
@@ -72,14 +89,24 @@ function ProductCard({ product, onOpenDetails }) {
             </div>
           ) : (
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleAddToCart(product.id);
-              }}
-              className="bg-chili hover:bg-chili-dark active:scale-95 text-white px-4 py-2.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-chili/20 hover:shadow-chili/30"
+              onClick={onAdd}
+              className={`px-4 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-extrabold transition-all flex items-center gap-1.5 shadow-md active:scale-95 ${
+                justAdded
+                  ? "bg-[#66734A] text-white shadow-[#66734A]/30"
+                  : "bg-[#C65D21] hover:bg-[#A94B16] text-white shadow-[#C65D21]/25 hover:shadow-[#C65D21]/40 hover:-translate-y-0.5"
+              }`}
             >
-              <Plus className="w-3.5 h-3.5 stroke-[3]" />
-              <span>Add</span>
+              {justAdded ? (
+                <>
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span>Added</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 stroke-[3]" />
+                  <span>Add to Cart</span>
+                </>
+              )}
             </button>
           )}
         </div>

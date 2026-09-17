@@ -70,7 +70,7 @@ function CartDrawer({
 
   const buildWhatsAppMessage = () => {
     const lines = [
-      "Hi CrispyBites! I'd like to place an order:",
+      "Hi RusticBite! I'd like to place an order:",
       "",
       ...cartItems.map((item) => `• ${item.title} x${item.qty} — Rs. ${item.price * item.qty}`),
       "",

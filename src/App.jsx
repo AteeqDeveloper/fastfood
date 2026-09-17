@@ -9,6 +9,11 @@ import {
 import { CartProvider } from "./context/CartContext";
 import Header from "./components/Header";
 import HomePage from "./components/HomePage";
+import MenuPage from "./components/MenuPage";
+import AboutPage from "./components/AboutPage";
+import OffersPage from "./components/OffersPage";
+import ContactPage from "./components/ContactPage";
+import CartPage from "./components/CartPage";
 import CollectionPage from "./components/CollectionPage";
 import DealsPage from "./components/DealsPage";
 import CartDrawer from "./components/CartDrawer";
@@ -17,20 +22,25 @@ import AdminDashboard from "./components/AdminDashboard";
 import TrackOrderPage from "./components/TrackOrderPage";
 import DrinkPromptModal from "./components/DrinkPromptModal";
 import Footer from "./components/Footer";
+import { DEFAULT_PRODUCTS } from "./data/defaultProducts";
 
 function getInitialPage() {
   if (typeof window !== "undefined") {
     const path = window.location.pathname.toLowerCase();
     const hash = window.location.hash.toLowerCase();
-    if (path === "/admin" || path === "/admin/" || hash === "#admin" || hash === "#/admin") {
-      return "admin";
-    }
-    if (path === "/deals" || path === "/deals/" || hash === "#deals" || hash === "#/deals") {
-      return "deals";
-    }
-    if (path === "/track" || path === "/track/" || hash === "#track" || hash === "#/track") {
-      return "track";
-    }
+    if (path.startsWith("/admin") || hash.includes("admin")) return "admin";
+    if (path.startsWith("/menu") || hash.includes("menu")) return "menu";
+    if (path.startsWith("/about") || hash.includes("about")) return "about";
+    if (
+      path.startsWith("/offers") ||
+      path.startsWith("/deals") ||
+      hash.includes("offers") ||
+      hash.includes("deals")
+    )
+      return "offers";
+    if (path.startsWith("/track") || hash.includes("track")) return "track";
+    if (path.startsWith("/contact") || hash.includes("contact")) return "contact";
+    if (path.startsWith("/cart") || hash.includes("cart")) return "cart";
   }
   return "home";
 }
@@ -73,7 +83,7 @@ function Storefront({
         <Header
           search={search}
           setSearch={setSearch}
-          onCartClick={() => setCartOpen(true)}
+          onCartClick={() => setPage("cart")}
           onFiltersClick={() => setMobileFiltersOpen(true)}
           page={page}
           onNavigate={setPage}
@@ -87,40 +97,29 @@ function Storefront({
 
         {page === "track" ? (
           <TrackOrderPage initialPhone={trackPrefillPhone} />
-        ) : page === "deals" ? (
-          <DealsPage deals={deals} onExploreMenu={() => setPage("collection")} />
-        ) : productsLoading ? (
-          <div className="flex items-center justify-center py-32">
-            <p className="text-ink/40 text-sm font-medium">Loading menu…</p>
-          </div>
-        ) : page === "home" ? (
-          <HomePage
-            topProducts={topProducts}
-            categories={categories}
-            onExplore={() => setPage("collection")}
-            onDeals={() => setPage("deals")}
-            onCategorySelect={(cat) => {
-              setCategory(cat);
-              setPage("collection");
-            }}
+        ) : page === "offers" || page === "deals" ? (
+          <OffersPage onExploreMenu={() => setPage("menu")} onNavigate={setPage} />
+        ) : page === "about" ? (
+          <AboutPage onNavigate={setPage} />
+        ) : page === "contact" ? (
+          <ContactPage />
+        ) : page === "cart" ? (
+          <CartPage onNavigate={setPage} onPrefillTrack={setTrackPrefillPhone} />
+        ) : page === "menu" ? (
+          <MenuPage
+            products={products.length > 0 ? products : DEFAULT_PRODUCTS}
             onOpenDetails={openProductDetails}
+            initialCategory={category}
           />
         ) : (
-          <CollectionPage
-            categories={categories}
-            category={category}
-            setCategory={setCategory}
-            rating={rating}
-            setRating={setRating}
-            priceRange={priceRange}
-            setPriceRange={setPriceRange}
-            sortBy={sortBy}
-            setSortBy={setSortBy}
-            filteredProducts={filteredProducts}
+          <HomePage
+            topProducts={
+              topProducts.length > 0
+                ? topProducts
+                : DEFAULT_PRODUCTS.filter((p) => p.isPopular)
+            }
             onOpenDetails={openProductDetails}
-            mobileFiltersOpen={mobileFiltersOpen}
-            onCloseMobileFilters={() => setMobileFiltersOpen(false)}
-            onResetFilters={resetFilters}
+            onNavigate={setPage}
           />
         )}
       </div>
@@ -150,9 +149,9 @@ function Storefront({
 
 function App() {
   const [page, setPage] = useState(getInitialPage); // "home" | "collection" | "track" | "deals" | "admin"
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState(DEFAULT_PRODUCTS);
   const [deals, setDeals] = useState([]);
-  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState("");
 
   const [category, setCategory] = useState("All");
@@ -169,18 +168,19 @@ function App() {
 
   // Load products and deals
   const fetchProducts = async () => {
-    setProductsLoading(true);
-    const { data, error } = await supabaseClient
-      .from("products")
-      .select("*")
-      .order("id", { ascending: true });
-    if (error) {
-      setProductsError(error.message);
-    } else {
-      setProductsError("");
-      setProducts(data || []);
+    try {
+      const { data, error } = await supabaseClient
+        .from("products")
+        .select("*")
+        .order("id", { ascending: true });
+      if (error || !data || data.length === 0) {
+        setProducts(DEFAULT_PRODUCTS);
+      } else {
+        setProducts(data);
+      }
+    } catch {
+      setProducts(DEFAULT_PRODUCTS);
     }
-    setProductsLoading(false);
   };
 
   const fetchDeals = async () => {
@@ -195,18 +195,10 @@ function App() {
 
   const handleNavigate = (newPage) => {
     setPage(newPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
     if (typeof window !== "undefined") {
-      if (newPage === "admin") {
-        window.history.pushState({}, "", "/admin");
-      } else if (newPage === "deals") {
-        window.history.pushState({}, "", "/deals");
-      } else if (newPage === "track") {
-        window.history.pushState({}, "", "/track");
-      } else if (newPage === "collection") {
-        window.history.pushState({}, "", "/menu");
-      } else {
-        window.history.pushState({}, "", "/");
-      }
+      const path = newPage === "home" ? "/" : `/${newPage}`;
+      window.history.pushState({}, "", path);
     }
   };
 

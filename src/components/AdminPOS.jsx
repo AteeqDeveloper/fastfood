@@ -26,17 +26,7 @@ import {
   Filter,
   Sparkles,
 } from "lucide-react";
-
-const POS_CATEGORY_ICONS = {
-  All: "✨",
-  Deals: "🏷️",
-  Deal: "🏷️",
-  Burger: "🍔",
-  Shawarma: "🌯",
-  Pizza: "🍕",
-  Sides: "🍟",
-  Drinks: "🥤",
-};
+import { getCategoryImage } from "../data/categories";
 
 const ORDER_TYPES = [
   { id: "dine_in", label: "Dine-In", icon: Utensils },
@@ -507,7 +497,6 @@ const reprintBill = (bill) => {
             {/* Horizontal scrolling chips */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scroll-thin">
               {categories.map((cat) => {
-                const icon = POS_CATEGORY_ICONS[cat] || "🍽️";
                 const count = categoryCounts[cat] || 0;
                 const isSelected = selectedCat === cat;
 
@@ -515,13 +504,20 @@ const reprintBill = (bill) => {
                   <button
                     key={cat}
                     onClick={() => setSelectedCat(cat)}
-                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    className={`group shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
                       isSelected
                         ? "bg-chili text-white shadow-sm scale-[1.02]"
                         : "bg-cream text-ink/70 hover:bg-ink/10"
                     }`}
                   >
-                    <span>{icon}</span>
+                    <div className="w-5 h-5 rounded-full overflow-hidden shrink-0 bg-ink/5 ring-1 ring-ink/10 shadow-xs">
+                      <img
+                        src={getCategoryImage(cat)}
+                        alt={cat}
+                        className="w-full h-full object-cover object-center group-hover:scale-115 transition-transform duration-200"
+                        loading="lazy"
+                      />
+                    </div>
                     <span>{cat}</span>
                     <span
                       className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
@@ -564,7 +560,6 @@ const reprintBill = (bill) => {
 
                 <div className="p-4 flex flex-col gap-2 overflow-y-auto scroll-thin">
                   {categories.map((cat) => {
-                    const icon = POS_CATEGORY_ICONS[cat] || "🍽️";
                     const count = categoryCounts[cat] || 0;
                     const isSelected = selectedCat === cat;
 
@@ -575,14 +570,21 @@ const reprintBill = (bill) => {
                           setSelectedCat(cat);
                           setCategoryDrawerOpen(false);
                         }}
-                        className={`flex items-center justify-between px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all text-left ${
+                        className={`group flex items-center justify-between px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all text-left ${
                           isSelected
                             ? "bg-chili text-white shadow-md shadow-chili/25 scale-[1.01]"
                             : "bg-cream/60 hover:bg-cream text-ink/80 hover:text-ink border border-ink/5"
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <span className="text-xl">{icon}</span>
+                          <div className="w-7 h-7 rounded-lg overflow-hidden shrink-0 shadow-xs bg-ink/5 ring-1 ring-ink/10">
+                            <img
+                              src={getCategoryImage(cat)}
+                              alt={cat}
+                              className="w-full h-full object-cover object-center group-hover:scale-115 transition-transform duration-200"
+                              loading="lazy"
+                            />
+                          </div>
                           <span>{cat} Collection</span>
                         </div>
                         <span

@@ -24,13 +24,14 @@ import {
   ArrowRight,
   TrendingDown,
 } from "lucide-react";
+import { getCategoryImage } from "../data/categories";
 
 const CATEGORY_TABS = [
-  { id: "All", label: "All Deals", icon: "✨" },
-  { id: "Solo Combos", label: "Solo Combos", icon: "🍔" },
-  { id: "Sharing & Family", label: "Sharing & Family", icon: "🍕" },
-  { id: "Flash Deals", label: "Flash Deals", icon: "⚡" },
-  { id: "Budget Bites", label: "Budget Bites (Under Rs. 1000)", icon: "🏷️" },
+  { id: "All", label: "All Deals" },
+  { id: "Solo Combos", label: "Solo Combos" },
+  { id: "Sharing & Family", label: "Sharing & Family" },
+  { id: "Flash Deals", label: "Flash Deals" },
+  { id: "Budget Bites", label: "Budget Bites (Under Rs. 1000)" },
 ];
 
 function DealsPage({ deals = initialDeals, onExploreMenu }) {

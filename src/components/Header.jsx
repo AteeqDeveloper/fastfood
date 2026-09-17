@@ -1,48 +1,50 @@
 import { useState, useEffect } from "react";
 import { useCart } from "../context/CartContext";
 import {
-  Search,
-  ShoppingBag,
-  SlidersHorizontal,
   Flame,
   Menu,
   X,
+  ShoppingBag,
   Home,
   UtensilsCrossed,
-  Truck,
   Tag,
+  Truck,
+  PhoneCall,
+  Heart,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { label: "Home", page: "home", icon: Home },
-  { label: "Menu", page: "collection", icon: UtensilsCrossed },
-  { label: "Deals", page: "deals", icon: Tag, isHot: true },
+  { label: "Menu", page: "menu", icon: UtensilsCrossed },
+  { label: "About", page: "about", icon: Heart },
+  { label: "Offers", page: "offers", icon: Tag, isHot: true },
   { label: "Track Order", page: "track", icon: Truck },
+  { label: "Contact", page: "contact", icon: PhoneCall },
 ];
 
 function Header({
-  search,
-  setSearch,
-  onCartClick,
-  onFiltersClick,
   page,
   onNavigate,
+  onCartClick,
 }) {
   const { cartCount } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
-  // Close mobile menu on resize to desktop
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth >= 1024) {
-        setMobileMenuOpen(false);
-      }
+      if (window.innerWidth >= 1024) setMobileMenuOpen(false);
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Close mobile menu on ESC
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") setMobileMenuOpen(false);
@@ -52,103 +54,99 @@ function Header({
   }, []);
 
   const handleNavClick = (targetPage) => {
-    onNavigate(targetPage);
     setMobileMenuOpen(false);
+    onNavigate(targetPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-charcoal/95 backdrop-blur-md text-cream border-b border-white/10 shadow-lg">
-        <div className="max-w-screen-2xl mx-auto flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-6 lg:px-8 py-3">
-          {/* Left: Brand & Mobile Filter Button */}
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Filters trigger - mobile only, collection page only */}
-            {page === "collection" && (
-              <button
-                onClick={onFiltersClick}
-                className="lg:hidden shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-charcoal-light flex items-center justify-center hover:bg-chili transition-colors border border-white/10 active:scale-95"
-                aria-label="Open filters"
-              >
-                <SlidersHorizontal className="w-4 h-4 text-turmeric" />
-              </button>
-            )}
-
-            {/* Brand */}
-            <button
-              onClick={() => handleNavClick("home")}
-              className="flex items-center gap-2 group text-left"
-            >
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl bg-chili flex items-center justify-center shadow-md shadow-chili/30 group-hover:scale-105 transition-transform shrink-0">
-                <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-white fill-white" />
+      <header
+        className={`sticky top-0 z-40 bg-[#3A2418] text-[#FFF3DC] transition-all duration-300 border-b border-[#C65D21]/20 ${
+          scrolled ? "shadow-[0_10px_30px_-5px_rgba(58,36,24,0.4)]" : "shadow-md"
+        }`}
+      >
+        <div className="max-w-screen-2xl mx-auto flex items-center justify-between gap-3 sm:gap-6 px-4 sm:px-6 lg:px-8 py-3.5">
+          {/* 1. CrispyBites Brand Logo with Food Emblem */}
+          <button
+            onClick={() => handleNavClick("home")}
+            className="flex items-center gap-2.5 sm:gap-3 group text-left cursor-pointer shrink-0"
+          >
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-[#C65D21] flex items-center justify-center shadow-lg shadow-[#C65D21]/30 group-hover:scale-105 transition-transform shrink-0 border border-[#FFF3DC]/20">
+              <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-[#FFFAF0] fill-[#FFFAF0]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-display font-black text-xl sm:text-2xl tracking-tight leading-none text-[#FFFAF0]">
+                  Crispy<span className="text-[#C65D21]">Bites</span>
+                </span>
+                <span className="hidden sm:inline-block text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-[#E6A93A] text-[#3A2418] tracking-wider">
+                  Artisan
+                </span>
               </div>
-              <span className="font-display font-black text-lg sm:text-2xl tracking-tight leading-none">
-                Crispy<span className="text-chili">Bites</span>
-              </span>
-            </button>
-          </div>
+              <p className="text-[10px] sm:text-[11px] font-bold text-[#FFF3DC]/60 tracking-wider uppercase mt-0.5">
+               Street Food
+              </p>
+            </div>
+          </button>
 
-          {/* Center: Desktop Nav links (hidden on tablet/mobile) */}
-          <nav className="hidden lg:flex items-center gap-1 bg-charcoal-light/80 p-1 rounded-full border border-white/10 shrink-0">
-            {NAV_ITEMS.map((item) => (
-              <button
-                key={item.page}
-                onClick={() => handleNavClick(item.page)}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  page === item.page
-                    ? "bg-chili text-white shadow-md shadow-chili/25 scale-[1.02]"
-                    : "text-cream/70 hover:text-white hover:bg-white/5"
-                }`}
-              >
-                <span>{item.label}</span>
-                {item.isHot && (
-                  <span className="bg-turmeric text-charcoal text-[9px] font-black px-1.5 py-0.2 rounded-full uppercase tracking-wider animate-pulse">
-                    HOT
-                  </span>
-                )}
-              </button>
-            ))}
+          {/* 2. Desktop Navigation Links (Home | Menu | About | Offers | Track Order | Contact) */}
+          <nav className="hidden lg:flex items-center gap-1 bg-[#4A3123]/70 px-3 py-1.5 rounded-full border border-[#FFF3DC]/10 shadow-inner">
+            {NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const isActive = page === item.page;
+              return (
+                <button
+                  key={item.page}
+                  onClick={() => handleNavClick(item.page)}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                    isActive
+                      ? "bg-[#C65D21] text-white shadow-md shadow-[#C65D21]/30 scale-[1.02]"
+                      : "text-[#FFF3DC]/80 hover:text-[#FFF3DC] hover:bg-[#FFF3DC]/10"
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5 opacity-80" />
+                  <span>{item.label}</span>
+                  {item.isHot && (
+                    <span className="bg-[#E6A93A] text-[#3A2418] text-[9px] font-black px-1.5 py-0.2 rounded-full uppercase tracking-wider animate-pulse">
+                      Hot
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </nav>
 
-          {/* Search bar - expands flexibly */}
-          <div className="flex-1 min-w-0 max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg mx-1 sm:mx-2">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink/40 pointer-events-none" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search menu..."
-                className="w-full bg-cream/95 text-ink placeholder:text-ink/40 rounded-xl sm:rounded-2xl pl-8 sm:pl-9 pr-3 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-chili focus:bg-white shadow-inner transition-all"
-              />
-            </div>
-          </div>
-
-          {/* Right: Cart Button & Hamburger Toggle */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* 3. Right: Cart Button & Mobile Hamburger Menu */}
+          <div className="flex items-center gap-2.5 shrink-0">
             {/* Cart Button */}
             <button
-              onClick={onCartClick}
-              className="relative flex items-center gap-1.5 sm:gap-2 bg-chili hover:bg-chili-dark active:scale-95 transition-all px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm text-white shadow-md shadow-chili/25"
-              aria-label="Open cart"
+              onClick={() => handleNavClick("cart")}
+              className={`relative flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-extrabold text-xs sm:text-sm transition-all shadow-md active:scale-95 cursor-pointer ${
+                page === "cart"
+                  ? "bg-[#A94B16] text-white ring-2 ring-[#E6A93A]"
+                  : "bg-[#C65D21] hover:bg-[#A94B16] text-white shadow-[#C65D21]/30 hover:shadow-[#C65D21]/40"
+              }`}
+              aria-label="Open Cart"
             >
               <ShoppingBag className="w-4 h-4" />
-              <span className="hidden md:inline">Cart</span>
+              <span className="hidden sm:inline">Cart</span>
               {cartCount > 0 && (
-                <span className="bg-turmeric text-charcoal text-[10px] sm:text-xs font-black w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shadow-md animate-pop-in">
+                <span className="bg-[#E6A93A] text-[#3A2418] text-[11px] sm:text-xs font-black w-5 h-5 rounded-full flex items-center justify-center shadow-md animate-pop-in">
                   {cartCount}
                 </span>
               )}
             </button>
 
-            {/* Hamburger Button - visible on tablet & mobile (< 1024px) */}
+            {/* Mobile Hamburger Toggle Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-charcoal-light border border-white/10 flex items-center justify-center text-cream hover:text-white hover:bg-charcoal-light/90 active:scale-95 transition-all"
+              className="lg:hidden w-10 h-10 rounded-2xl bg-[#4A3123] border border-[#FFF3DC]/15 flex items-center justify-center text-[#FFF3DC] hover:text-white hover:bg-[#4A3123]/80 active:scale-95 transition-all cursor-pointer"
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileMenuOpen}
             >
               {mobileMenuOpen ? (
-                <X className="w-5 h-5 text-chili" />
+                <X className="w-5 h-5 text-[#E6A93A]" />
               ) : (
                 <Menu className="w-5 h-5" />
               )}
@@ -156,17 +154,17 @@ function Header({
           </div>
         </div>
 
-        {/* Mobile Dropdown / Slide-down Menu */}
+        {/* Mobile Slide-Down Menu Drawer */}
         <div
           className={`lg:hidden overflow-hidden transition-all duration-300 ease-in-out border-t ${
             mobileMenuOpen
-              ? "max-h-96 opacity-100 border-white/10 bg-charcoal/98 shadow-2xl"
+              ? "max-h-[36rem] opacity-100 border-[#FFF3DC]/10 bg-[#3A2418] shadow-2xl"
               : "max-h-0 opacity-0 border-transparent pointer-events-none"
           }`}
         >
           <div className="max-w-screen-2xl mx-auto px-4 py-4 flex flex-col gap-2">
-            <p className="text-[11px] font-extrabold uppercase tracking-widest text-cream/40 px-3 mb-1">
-              Navigation
+            <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#FFF3DC]/50 px-3 mb-1">
+              CrispyBites Navigation
             </p>
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
@@ -175,25 +173,43 @@ function Header({
                 <button
                   key={item.page}
                   onClick={() => handleNavClick(item.page)}
-                  className={`flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                  className={`flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-extrabold transition-all text-left cursor-pointer ${
                     isActive
-                      ? "bg-chili text-white shadow-md shadow-chili/25"
-                      : "bg-charcoal-light/70 text-cream/80 hover:bg-charcoal-light hover:text-white"
+                      ? "bg-[#C65D21] text-white shadow-md shadow-[#C65D21]/30"
+                      : "bg-[#4A3123]/70 hover:bg-[#C65D21] text-[#FFF3DC] hover:text-white"
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className="w-4 h-4 opacity-80" />
+                    <Icon className="w-4 h-4 text-[#E6A93A]" />
                     <span>{item.label}</span>
                     {item.isHot && (
-                      <span className="bg-turmeric text-charcoal text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">
-                        HOT
+                      <span className="bg-[#E6A93A] text-[#3A2418] text-[9px] font-black px-1.5 py-0.2 rounded-full uppercase tracking-wider">
+                        Hot
                       </span>
                     )}
                   </div>
-                  {isActive && <span className="text-xs">●</span>}
+                  <span className="text-xs text-[#FFF3DC]/40">→</span>
                 </button>
               );
             })}
+
+            {/* Cart shortcut in mobile menu */}
+            <button
+              onClick={() => handleNavClick("cart")}
+              className={`flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-extrabold transition-all text-left cursor-pointer mt-1 ${
+                page === "cart"
+                  ? "bg-[#C65D21] text-white shadow-md"
+                  : "bg-[#4A3123]/90 text-[#E6A93A] hover:bg-[#C65D21] hover:text-white"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <ShoppingBag className="w-4 h-4" />
+                <span>View Cart & Checkout</span>
+              </div>
+              <span className="bg-[#E6A93A] text-[#3A2418] text-xs font-black px-2 py-0.5 rounded-full">
+                {cartCount}
+              </span>
+            </button>
           </div>
         </div>
       </header>
@@ -201,7 +217,7 @@ function Header({
       {/* Backdrop overlay for mobile menu */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity duration-300"
+          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden transition-opacity duration-300"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}

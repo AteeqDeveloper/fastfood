@@ -2,16 +2,7 @@ import ProductCard from "./ProductsCard";
 import Sidebar from "./Sidebar";
 import EmptyState from "./EmptyState";
 import { SlidersHorizontal, ArrowUpDown, Sparkles, Flame } from "lucide-react";
-
-const CATEGORY_ICONS = {
-  All: "✨",
-  Burger: "🍔",
-  Shawarma: "🌯",
-  Pizza: "🍕",
-  Sides: "🍟",
-  Drinks: "🥤",
-  Deal: "🏷️",
-};
+import { getCategoryImage } from "../data/categories";
 
 function CollectionPage({
   categories,
@@ -72,20 +63,27 @@ function CollectionPage({
         </div>
 
         {/* Quick Category Chips Strip (Horizontal for Easy Mobile & Desktop Access) */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-6 scroll-thin">
+        <div className="flex items-center gap-2.5 overflow-x-auto pb-4 mb-6 scroll-thin">
           {categories.map((cat) => {
             const isActive = category === cat;
             return (
               <button
                 key={cat}
                 onClick={() => setCategory(cat)}
-                className={`shrink-0 px-4 py-2 rounded-2xl text-xs font-extrabold transition-all duration-300 flex items-center gap-2 ${
+                className={`group shrink-0 px-3.5 py-2 rounded-2xl text-xs font-extrabold transition-all duration-300 flex items-center gap-2.5 ${
                   isActive
                     ? "bg-chili text-white shadow-lg shadow-chili/25 scale-105"
-                    : "bg-white hover:bg-cream text-ink/70 hover:text-ink border border-ink/5"
+                    : "bg-white hover:bg-cream text-ink/70 hover:text-ink border border-ink/5 hover:shadow-xs"
                 }`}
               >
-                <span>{CATEGORY_ICONS[cat] || "🍽️"}</span>
+                <div className="w-6 h-6 rounded-lg overflow-hidden shrink-0 shadow-xs bg-ink/5 ring-1 ring-ink/10">
+                  <img
+                    src={getCategoryImage(cat)}
+                    alt={cat}
+                    className="w-full h-full object-cover object-center group-hover:scale-115 transition-transform duration-300"
+                    loading="lazy"
+                  />
+                </div>
                 <span>{cat}</span>
               </button>
             );
