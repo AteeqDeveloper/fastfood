@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { deals } from "../data/deals";
-import { supabaseClient } from "../lib/supabaseClient";
+import { api } from "../lib/api";
 import QuantityStepper from "./QuantityStepper";
 import {
   Search,
@@ -44,7 +44,7 @@ export default function AdminPOS({
   session,
   onOrderCompleted,
 }) {
-  // Menu items: Supabase products + Active Deals
+  // Menu items: Catalog products + Active Deals
   const activeDeals = useMemo(() => {
     return (deals.length > 0 ? deals : []).filter(
       (d) => d.status === "active" || d.isActive !== false
@@ -275,12 +275,12 @@ export default function AdminPOS({
       status: "Preparing",
     };
 
-    // Save to Supabase
-    const { error } = await supabaseClient.from("orders").insert(orderRecord);
+    // Save to backend
+    const { error } = await api.post("/orders/place", orderRecord);
     setPlacing(false);
 
     if (error) {
-      console.warn("Could not save to Supabase, continuing locally:", error.message);
+      console.warn("Could not save to backend, continuing locally:", error.message);
     }
 
     const billData = {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabaseClient } from "../lib/supabaseClient";
+import { api } from "../lib/api";
 import {
   Search,
   Clock,
@@ -144,18 +144,9 @@ function TrackOrderPage({ initialPhone = "" }) {
       return;
     }
 
-    // Try finding by ID or phone in Supabase
-    const isIdSearch = trimmed.startsWith("CB-") || trimmed.startsWith("SB-");
-    let queryBuilder = supabaseClient.from("orders").select("*");
-
-    if (isIdSearch) {
-      queryBuilder = queryBuilder.eq("id", trimmed);
-    } else {
-      queryBuilder = queryBuilder.eq("phone", trimmed);
-    }
-
-    const { data, error: fetchError } = await queryBuilder.order("created_at", {
-      ascending: false,
+    // Try finding by ID or phone in backend
+    const { data, error: fetchError } = await api.get("/orders/track", {
+      query: trimmed,
     });
 
     setLoading(false);

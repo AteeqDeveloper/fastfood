@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { supabaseClient } from "../lib/supabaseClient";
+import { api, getToken, getUser, clearAuth } from "../lib/api";
 import AdminSidebar, { ADMIN_NAV_ITEMS } from "./AdminSidebar";
 import AdminOverview from "./AdminOverview";
 import AdminAnalytics from "./AdminAnalytics";
@@ -84,48 +84,59 @@ function AdminDashboard({
 
   useEffect(() => {
     let isMounted = true;
-    
-    // Safety fallback: if Supabase takes more than 3s, proceed to login screen
-    const timeout = setTimeout(() => {
-      if (isMounted) setSessionChecked(true);
-    }, 3000);
 
-    supabaseClient.auth
-      .getSession()
-      .then(({ data, error }) => {
+    const checkAuth = async () => {
+      const token = getToken();
+      const cachedUser = getUser();
+
+      if (!token) {
         if (isMounted) {
-          clearTimeout(timeout);
-          setSession(data?.session || null);
-          setSessionChecked(true);
-        }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          clearTimeout(timeout);
-          console.warn("Session check failed, defaulting to login", err);
           setSession(null);
           setSessionChecked(true);
         }
-      });
+        return;
+      }
 
-    const { data: listener } = supabaseClient.auth.onAuthStateChange(
-      (_event, newSession) => {
-        if (isMounted) {
-          setSession(newSession);
-          setSessionChecked(true);
+      // If token exists, verify with backend /users/me
+      try {
+        const { data, error } = await api.get("/users/me");
+        if (!isMounted) return;
+
+        if (!error && data) {
+          setSession({ user: data });
+        } else if (cachedUser) {
+          setSession({ user: cachedUser });
+        } else {
+          clearAuth();
+          setSession(null);
+        }
+      } catch {
+        if (isMounted && cachedUser) {
+          setSession({ user: cachedUser });
         }
       }
-    );
+      if (isMounted) setSessionChecked(true);
+    };
+
+    checkAuth();
+
+    const handleAuthChange = () => {
+      checkAuth();
+    };
+
+    window.addEventListener("auth-change", handleAuthChange);
+    window.addEventListener("storage", handleAuthChange);
 
     return () => {
       isMounted = false;
-      clearTimeout(timeout);
-      listener?.subscription?.unsubscribe?.();
+      window.removeEventListener("auth-change", handleAuthChange);
+      window.removeEventListener("storage", handleAuthChange);
     };
   }, []);
 
-  const handleSignOut = async () => {
-    await supabaseClient.auth.signOut();
+  const handleSignOut = () => {
+    clearAuth();
+    setSession(null);
   };
 
   // ---- Navigation & Mobile Sidebar ----
@@ -167,17 +178,14 @@ function AdminDashboard({
 
   const fetchOrders = async () => {
     setOrdersLoading(true);
-    const { data, error } = await supabaseClient
-      .from("orders")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data, error } = await api.get("/orders/admin");
     if (!error) setOrders(data || []);
     setOrdersLoading(false);
   };
 
   const handleUpdateOrderStatus = async (id, status) => {
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
-    const { error } = await supabaseClient.from("orders").update({ status }).eq("id", id);
+    const { error } = await api.patch(`/orders/${id}/status`, { status });
     if (error) showToast("Could not update order status", "error");
   };
 
@@ -188,29 +196,26 @@ function AdminDashboard({
 
   const fetchReviews = async () => {
     setReviewsLoading(true);
-    const { data, error } = await supabaseClient
-      .from("reviews")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data, error } = await api.get("/reviews");
     if (!error) setReviews(data || []);
     setReviewsLoading(false);
   };
 
   const handleApproveReview = async (id) => {
     setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, is_approved: true } : r)));
-    const { error } = await supabaseClient.from("reviews").update({ is_approved: true }).eq("id", id);
+    const { error } = await api.patch(`/reviews/${id}`, { is_approved: true });
     if (error) showToast("Could not approve review", "error");
   };
 
   const handleRejectReview = async (id) => {
     setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, is_approved: false } : r)));
-    const { error } = await supabaseClient.from("reviews").update({ is_approved: false }).eq("id", id);
+    const { error } = await api.patch(`/reviews/${id}`, { is_approved: false });
     if (error) showToast("Could not update review", "error");
   };
 
   const handleDeleteReview = async (id) => {
     setReviews((prev) => prev.filter((r) => r.id !== id));
-    const { error } = await supabaseClient.from("reviews").delete().eq("id", id);
+    const { error } = await api.delete(`/reviews/${id}`);
     if (error) showToast("Could not delete review", "error");
     else showToast("Review deleted", "error");
   };

@@ -1,10 +1,7 @@
-// Deals are self-contained combo bundles — not tied to specific product rows in
-// Supabase. They flow through the same cart system as real products (App.jsx
-// merges this list in for cart lookups), so ordering, checkout, tracking, and
-// the admin Orders tab all "just work" with no extra code.
-//
-// IDs are kept in a high range (9000+) so they never collide with real
-// Supabase product IDs.
+// Deals are self-contained combo bundles that flow through the same cart system as
+// regular products (App.jsx merges this list in for cart lookups), so ordering, checkout,
+// tracking, and the admin Orders tab all work seamlessly.
+// IDs are kept in a high range (9000+) to distinguish combo bundles.
 
 export const deals = [
   {

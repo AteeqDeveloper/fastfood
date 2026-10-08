@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabaseClient } from "../lib/supabaseClient";
+import { api } from "../lib/api";
 import { useCart } from "../context/CartContext";
 import QuantityStepper from "./QuantityStepper";
 
@@ -23,12 +23,7 @@ function ProductDetailModal({ product, isOpen, onClose }) {
         setSubmitted(false);
         setReviewForm({ username: "", review: "", rating: "5" });
 
-        supabaseClient
-            .from("reviews")
-            .select("*")
-            .eq("product_id", product.id)
-            .eq("is_approved", true)
-            .order("created_at", { ascending: false })
+        api.get("/reviews", { product_id: product.id, is_approved: true })
             .then(({ data, error }) => {
                 if (cancelled) return;
                 if (!error) setReviews(data || []);
@@ -47,7 +42,7 @@ function ProductDetailModal({ product, isOpen, onClose }) {
         if (!reviewForm.username.trim() || !reviewForm.review.trim()) return;
 
         setSubmitting(true);
-        const { error } = await supabaseClient.from("reviews").insert({
+        const { error } = await api.post("/reviews", {
             product_id: product.id,
             username: reviewForm.username.trim(),
             review: reviewForm.review.trim(),

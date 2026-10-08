@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useMemo, useEffect, useCallback } from "react";
-import { supabaseClient } from "../lib/supabaseClient";
+import { api } from "../lib/api";
 import { deals as defaultDeals } from "../data/deals";
 
 const CART_STORAGE_KEY = "crispybites_cart";
@@ -102,7 +102,7 @@ export function CartProvider({ products = [], deals = [], children }) {
 
   const handleSkipDrinkPrompt = useCallback(() => setDrinkPromptOpen(false), []);
 
-  // Checkout → writes a row into Supabase `orders`
+  // Checkout → places order via backend API
   const handlePlaceOrder = useCallback(
     async (formData) => {
       const total = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
@@ -122,7 +122,7 @@ export function CartProvider({ products = [], deals = [], children }) {
       };
 
       setPlacingOrder(true);
-      const { error } = await supabaseClient.from("orders").insert(newOrder);
+      const { error } = await api.post("/orders/place", newOrder);
       setPlacingOrder(false);
 
       if (error) {

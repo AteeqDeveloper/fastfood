@@ -1,4 +1,4 @@
-import { supabaseClient } from "./supabaseClient";
+import { api } from "./api";
 import { deals as defaultInitialDeals } from "../data/deals";
 
 const DEALS_STORAGE_KEY = "crispybites_custom_deals";
@@ -77,14 +77,11 @@ export function saveLocalStoredDeals(dealsList) {
 }
 
 /**
- * Fetches all deals (from Supabase if table exists, else localStorage)
+ * Fetches all deals (from Backend API if available, else localStorage)
  */
 export async function fetchDealsService() {
   try {
-    const { data, error } = await supabaseClient
-      .from("deals")
-      .select("*")
-      .order("id", { ascending: true });
+    const { data, error } = await api.get("/deals");
 
     if (!error && Array.isArray(data) && data.length > 0) {
       const normalized = data.map((d) => ({
@@ -116,7 +113,7 @@ export async function fetchDealsService() {
       return normalized;
     }
   } catch {
-    // Table may not exist yet in Supabase or network issue; fallback smoothly to localStorage
+    // If backend is unreachable or network issue, fallback smoothly to localStorage
   }
 
   return getLocalStoredDeals();
@@ -172,33 +169,11 @@ export async function saveDealService(dealPayload, allDeals) {
 
   formatted.status = evaluateDealStatus(formatted);
 
-  // Try writing to Supabase
+  // Try writing to backend
   try {
-    await supabaseClient.from("deals").upsert({
-      id: formatted.id,
-      title: formatted.title,
-      tagline: formatted.tagline,
-      description: formatted.description,
-      detailed_description: formatted.detailedDescription,
-      image: formatted.image,
-      items: formatted.items,
-      product_ids: formatted.productIds,
-      price: formatted.price,
-      original_price: formatted.originalPrice,
-      discount_percent: formatted.discountPercent,
-      category: formatted.category,
-      start_date: formatted.startDate,
-      expiry_date: formatted.expiryDate,
-      validity: formatted.validity,
-      badge: formatted.badge,
-      is_featured: formatted.isFeatured,
-      is_limited_time: formatted.isLimitedTime,
-      is_active: formatted.isActive,
-      rating: formatted.rating,
-      orders_count: formatted.ordersCount,
-    });
+    await api.post("/deals", formatted);
   } catch (err) {
-    console.warn("Supabase deal upsert fallback to local:", err);
+    console.warn("Backend deal save fallback to local:", err);
   }
 
   // Update local cache
@@ -218,9 +193,9 @@ export async function saveDealService(dealPayload, allDeals) {
  */
 export async function deleteDealService(id, allDeals) {
   try {
-    await supabaseClient.from("deals").delete().eq("id", id);
+    await api.delete(`/deals/${id}`);
   } catch (err) {
-    console.warn("Supabase deal delete fallback to local:", err);
+    console.warn("Backend deal delete fallback to local:", err);
   }
 
   const updatedList = allDeals.filter((d) => d.id !== Number(id));

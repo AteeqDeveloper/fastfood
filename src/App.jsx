@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { supabaseClient } from "./lib/supabaseClient";
+import { api } from "./lib/api";
 import {
   fetchDealsService,
   saveDealService,
@@ -169,10 +169,7 @@ function App() {
   // Load products and deals
   const fetchProducts = async () => {
     try {
-      const { data, error } = await supabaseClient
-        .from("products")
-        .select("*")
-        .order("id", { ascending: true });
+      const { data, error } = await api.get("/products");
       if (error || !data || data.length === 0) {
         setProducts(DEFAULT_PRODUCTS);
       } else {
@@ -251,11 +248,7 @@ function App() {
 
   // Admin Product CRUD
   const handleAddProduct = async (payload) => {
-    const { data, error } = await supabaseClient
-      .from("products")
-      .insert(payload)
-      .select()
-      .single();
+    const { data, error } = await api.post("/products", payload);
     if (error) {
       alert("Could not add product: " + error.message);
       return;
@@ -264,12 +257,7 @@ function App() {
   };
 
   const handleUpdateProduct = async (id, payload) => {
-    const { data, error } = await supabaseClient
-      .from("products")
-      .update(payload)
-      .eq("id", id)
-      .select()
-      .single();
+    const { data, error } = await api.patch(`/products/${id}`, payload);
     if (error) {
       alert("Could not update product: " + error.message);
       return;
@@ -278,7 +266,7 @@ function App() {
   };
 
   const handleDeleteProduct = async (id) => {
-    const { error } = await supabaseClient.from("products").delete().eq("id", id);
+    const { error } = await api.delete(`/products/${id}`);
     if (error) {
       alert("Could not delete product: " + error.message);
       return;

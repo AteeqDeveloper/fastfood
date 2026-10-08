@@ -41,7 +41,7 @@ export default function AdminProfile({ session, onSignOut, onBackToStorefront })
             </div>
             <p className="text-xs text-ink/50 flex items-center gap-1.5">
               <Mail className="w-3.5 h-3.5" />
-              <span>Verified Supabase Authentication</span>
+              <span>Verified Authentication</span>
             </p>
           </div>
         </div>

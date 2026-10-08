@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { supabaseClient } from "../lib/supabaseClient";
+import { api, setToken, setUser } from "../lib/api";
 
 function AdminLogin({ onBack }) {
   const [email, setEmail] = useState("");
@@ -11,13 +11,20 @@ function AdminLogin({ onBack }) {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const { error: signInError } = await supabaseClient.auth.signInWithPassword({
+    const { data, error: signInError } = await api.post("/auth/login", {
       email: email.trim(),
       password,
     });
     setLoading(false);
-    if (signInError) setError(signInError.message);
-    // On success, the parent listens to onAuthStateChange and re-renders.
+    if (signInError) {
+      setError(signInError.message || "Invalid credentials");
+      return;
+    }
+    if (data?.accessToken) {
+      setToken(data.accessToken);
+      setUser(data.user);
+      window.dispatchEvent(new Event("auth-change"));
+    }
   };
 
   return (
